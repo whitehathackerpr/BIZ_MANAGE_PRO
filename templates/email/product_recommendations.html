@@ -1,0 +1,188 @@
+{% extends "email/base.html" %}
+
+{% block title %}Recommended Just for You{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 30px;">
+    <h1 style="margin: 20px 0;">Picked Just for You</h1>
+    <p style="color: #666; font-size: 1.1em;">
+        Based on your recent purchases and browsing history
+    </p>
+</div>
+
+<!-- Top Recommendations -->
+<div style="margin-bottom: 40px;">
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        {% for product in recommendations.top_picks %}
+        <div style="
+            flex: 0 1 calc(33.333% - 14px);
+            min-width: 200px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            <div style="position: relative;">
+                <img src="{{ product.image }}" alt="{{ product.name }}"
+                     style="width: 100%; height: 200px; object-fit: cover;">
+                {% if product.discount %}
+                <div style="
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background-color: #dc3545;
+                    color: white;
+                    padding: 5px 10px;
+                    border-radius: 4px;
+                ">
+                    {{ product.discount }}% OFF
+                </div>
+                {% endif %}
+            </div>
+            <div style="padding: 15px;">
+                <h4 style="margin: 0 0 10px 0;">{{ product.name }}</h4>
+                <p style="color: #666; margin-bottom: 10px; font-size: 0.9em;">
+                    {{ product.description }}
+                </p>
+                <div style="margin-bottom: 10px;">
+                    {% if product.rating %}
+                    <div style="color: #ffc107;">
+                        {% for i in range(5) %}
+                        <i class="fas fa-star{% if i >= product.rating %}-o{% endif %}"></i>
+                        {% endfor %}
+                        <span style="color: #666; font-size: 0.9em;">
+                            ({{ product.review_count }})
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <div>
+                        {% if product.original_price %}
+                        <span style="
+                            text-decoration: line-through;
+                            color: #666;
+                            font-size: 0.9em;
+                        ">
+                            ${{ product.original_price|format_currency }}
+                        </span>
+                        {% endif %}
+                        <span style="
+                            font-weight: bold;
+                            font-size: 1.1em;
+                            color: {% if product.discount %}#dc3545{% else %}#000{% endif %};
+                        ">
+                            ${{ product.price|format_currency }}
+                        </span>
+                    </div>
+                    <a href="{{ product.url }}" class="button">Shop Now</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Category Recommendations -->
+{% for category in recommendations.by_category %}
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">{{ category.name }}</h2>
+    <div style="
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    ">
+        {% for product in category.products %}
+        <div style="
+            flex: 0 0 200px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            <img src="{{ product.image }}" alt="{{ product.name }}"
+                 style="width: 100%; height: 150px; object-fit: cover;">
+            <div style="padding: 10px;">
+                <h4 style="margin: 0 0 5px 0; font-size: 0.9em;">
+                    {{ product.name }}
+                </h4>
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span style="font-weight: bold;">
+                        ${{ product.price|format_currency }}
+                    </span>
+                    <a href="{{ product.url }}" style="
+                        color: var(--primary-color);
+                        text-decoration: none;
+                        font-size: 0.9em;
+                    ">
+                        View →
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<!-- Recently Viewed -->
+{% if recommendations.recently_viewed %}
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">Recently Viewed</h2>
+    <div style="
+        display: flex;
+        gap: 20px;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    ">
+        {% for product in recommendations.recently_viewed %}
+        <div style="
+            flex: 0 0 150px;
+            text-align: center;
+        ">
+            <img src="{{ product.image }}" alt="{{ product.name }}"
+                 style="
+                    width: 100px;
+                    height: 100px;
+                    object-fit: cover;
+                    border-radius: 50%;
+                    margin-bottom: 10px;
+                 ">
+            <h4 style="margin: 0 0 5px 0; font-size: 0.9em;">
+                {{ product.name }}
+            </h4>
+            <a href="{{ product.url }}" class="button" style="width: 100%;">
+                View Again
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div style="text-align: center; margin-top: 30px;">
+    <a href="{{ recommendations.all_products_url }}" class="button" style="
+        font-size: 1.2em;
+        padding: 15px 40px;
+    ">
+        Explore All Products
+    </a>
+</div>
+
+<div style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">
+    <p>
+        These recommendations are personalized based on your interactions.<br>
+        To update your preferences or unsubscribe, 
+        <a href="{{ preferences_url }}">click here</a>.
+    </p>
+</div>
+{% endblock %} 

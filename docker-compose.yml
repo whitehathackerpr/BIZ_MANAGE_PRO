@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    restart: always
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+      - celery
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+    command: gunicorn wsgi:app -w 4 -b 0.0.0.0:8000
+
+  db:
+    image: postgres:13
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+
+  redis:
+    image: redis:6
+    restart: always
+    volumes:
+      - redis_data:/data
+
+  celery:
+    build: .
+    restart: always
+    env_file: .env
+    depends_on:
+      - redis
+      - db
+    command: celery -A app.celery worker -l info
+
+  nginx:
+    image: nginx:1.19
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - static_volume:/app/static
+      - media_volume:/app/media
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume: 

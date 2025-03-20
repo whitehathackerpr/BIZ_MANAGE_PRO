@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Employee Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">Employee Management</h1>
+        <a href="{{ url_for('employees.add_employee') }}" class="btn btn-primary">
+            <i class="fas fa-user-plus"></i> Add Employee
+        </a>
+    </div>
+
+    <!-- Employee Table -->
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Employee ID</th>
+                            <th>Name</th>
+                            <th>Position</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                        <tr>
+                            <td>#{{ employee.id }}</td>
+                            <td>{{ employee.name }}</td>
+                            <td>{{ employee.position }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if employee.is_active else 'danger' }}">
+                                    {{ 'Active' if employee.is_active else 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>{{ employee.last_login|datetime }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary edit-employee" 
+                                        data-employee-id="{{ employee.id }}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-employee" 
+                                        data-employee-id="{{ employee.id }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

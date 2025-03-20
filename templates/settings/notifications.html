@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Settings - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Settings Navigation -->
+    <div class="col-md-3">
+        {% include 'settings/_nav.html' %}
+    </div>
+
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Notification Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="notificationSettingsForm">
+                    {{ form.hidden_tag() }}
+
+                    <!-- Email Notifications -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Email Notifications</h6>
+                        <div class="list-group">
+                            {% for category in email_notifications %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ category.name }}</h6>
+                                        <p class="mb-0 text-muted small">
+                                            {{ category.description }}
+                                        </p>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input"
+                                               id="email_{{ category.id }}"
+                                               name="email_notifications[]"
+                                               value="{{ category.id }}"
+                                               {% if category.enabled %}checked{% endif %}>
+                                    </div>
+                                </div>
+                                {% if category.sub_options %}
+                                <div class="mt-2 ps-4 border-start">
+                                    {% for option in category.sub_options %}
+                                    <div class="form-check mb-2">
+                                        <input type="checkbox" class="form-check-input"
+                                               id="email_{{ category.id }}_{{ option.id }}"
+                                               name="email_sub_options[]"
+                                               value="{{ option.id }}"
+                                               {% if option.enabled %}checked{% endif %}
+                                               data-parent="email_{{ category.id }}">
+                                        <label class="form-check-label" 
+                                               for="email_{{ category.id }}_{{ option.id }}">
+                                            {{ option.name }}
+                                        </label>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Push Notifications -->
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Push Notifications</h6>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                    id="requestPushPermission"
+                                    {% if push_enabled %}disabled{% endif %}>
+                                {% if push_enabled %}
+                                Enabled
+                                {% else %}
+                                Enable Push Notifications
+                                {% endif %}
+                            </button>
+                        </div>
+                        <div class="list-group">
+                            {% for category in push_notifications %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ category.name }}</h6>
+                                        <p class="mb-0 text-muted small">
+                                            {{ category.description }}
+                                        </p>
+                                    </div>
+                                    <div class="form-check form-switch">
+                                        <input type="checkbox" class="form-check-input"
+                                               id="push_{{ category.id }}"
+                                               name="push_notifications[]"
+                                               value="{{ category.id }}"
+                                               {% if not push_enabled %}disabled{% endif %}
+                                               {% if category.enabled %}checked{% endif %}>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Notification Schedule -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Notification Schedule</h6>
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Quiet Hours Start</label>
+                                            <input type="time" class="form-control"
+                                                   name="quiet_hours_start"
+                                                   value="{{ quiet_hours.start }}">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Quiet Hours End</label>
+                                            <input type="time" class="form-control"
+                                                   name="quiet_hours_end"
+                                                   value="{{ quiet_hours.end }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input"
+                                           id="enableQuietHours"
+                                           name="enable_quiet_hours"
+                                           {% if quiet_hours.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="enableQuietHours">
+                                        Enable Quiet Hours
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Notification Channels -->
+                    <div class="mb-4">
+                        <h6 class="mb-3">Additional Channels</h6>
+                        <div class="list-group">
+                            {% for channel in notification_channels %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">
+                                            <i class="fas fa-{{ channel.icon }} me-2"></i>
+                                            {{ channel.name }}
+                                        </h6>
+                                        <p class="mb-0 text-muted small">
+                                            {{ channel.description }}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        {% if channel.connected %}
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-danger"
+                                                onclick="disconnectChannel('{{ channel.id }}')">
+                                            Disconnect
+                                        </button>
+                                        {% else %}
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-primary"
+                                                onclick="connectChannel('{{ channel.id }}')">
+                                            Connect
+                                        </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Handle push notification permission
+document.getElementById('requestPushPermission').addEventListener('click', async () => {
+    try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            // Register service worker and update UI
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: '{{ vapid_public_key }}'
+            });
+            
+            // Send subscription to server
+            await fetch('/api/notifications/push/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(subscription)
+            });
+            
+            location.reload();
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to enable push notifications');
+    }
+});
+
+// Handle parent-child notification toggles
+document.querySelectorAll('[data-parent]').forEach(checkbox => {
+    const parentId = checkbox.dataset.parent;
+    const parentCheckbox = document.getElementById(parentId);
+    
+    parentCheckbox.addEventListener('change', (e) => {
+        checkbox.disabled = !e.target.checked;
+        if (!e.target.checked) {
+            checkbox.checked = false;
+        }
+    });
+});
+
+// Channel connection handlers
+async function connectChannel(channelId) {
+    // Implementation for connecting notification channels
+}
+
+async function disconnectChannel(channelId) {
+    // Implementation for disconnecting notification channels
+}
+</script>
+{% endblock %} 

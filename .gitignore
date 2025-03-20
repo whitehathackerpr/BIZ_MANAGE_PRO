@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Firebase
+firebase_config.json
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Database
+*.db
+*.sqlite 

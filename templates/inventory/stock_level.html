@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Stock Levels - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Stock Overview Cards -->
+    <div class="col-md-3">
+        <div class="card bg-primary text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Total Products</h5>
+                <h2>{{ stats.total_products }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">In Stock</h5>
+                <h2>{{ stats.in_stock }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-dark mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Low Stock</h5>
+                <h2>{{ stats.low_stock }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Out of Stock</h5>
+                <h2>{{ stats.out_of_stock }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Stock Levels Table -->
+<div class="card">
+    <div class="card-header">
+        <div class="row align-items-center">
+            <div class="col">
+                <h5 class="mb-0">Stock Levels</h5>
+            </div>
+            <div class="col-auto">
+                <button class="btn btn-primary" onclick="bulkAdjustStock()">
+                    <i class="fas fa-layer-group"></i> Bulk Adjust
+                </button>
+                <a href="{{ url_for('inventory.export_stock_levels') }}" class="btn btn-secondary">
+                    <i class="fas fa-file-export"></i> Export
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                        </th>
+                        <th>Product</th>
+                        <th>SKU</th>
+                        <th>Current Stock</th>
+                        <th>Reorder Point</th>
+                        <th>Status</th>
+                        <th>Last Updated</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in stock_levels.items %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="form-check-input product-select" 
+                                   value="{{ item.id }}">
+                        </td>
+                        <td>{{ item.name }}</td>
+                        <td>{{ item.sku }}</td>
+                        <td>{{ item.stock }}</td>
+                        <td>{{ item.reorder_point }}</td>
+                        <td>
+                            <span class="badge bg-{{ item.status_color }}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td>{{ item.updated_at|datetime }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" 
+                                    onclick="viewHistory({{ item.id }})">
+                                <i class="fas fa-history"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning" 
+                                    onclick="adjustStock({{ item.id }})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{ render_pagination(stock_levels) }}
+    </div>
+</div>
+
+<!-- Stock History Modal -->
+<div class="modal fade" id="stockHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Stock History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Quantity</th>
+                                <th>Previous Stock</th>
+                                <th>New Stock</th>
+                                <th>User</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stockHistoryTable">
+                            <!-- Stock history will be loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk Stock Adjustment Modal -->
+<div class="modal fade" id="bulkAdjustmentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bulk Stock Adjustment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="bulkAdjustmentForm">
+                    <div class="mb-3">
+                        <label class="form-label">Adjustment Type</label>
+                        <select class="form-select" id="bulkAdjustmentType">
+                            <option value="add">Add Stock</option>
+                            <option value="remove">Remove Stock</option>
+                            <option value="set">Set Stock Level</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" class="form-control" id="bulkAdjustmentQuantity" 
+                               min="0" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Reason</label>
+                        <textarea class="form-control" id="bulkAdjustmentReason" 
+                                  rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Apply Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/stock.js') }}"></script>
+{% endblock %} 

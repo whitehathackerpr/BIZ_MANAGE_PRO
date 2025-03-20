@@ -1,0 +1,203 @@
+{% extends "email/base.html" %}
+
+{% block title %}{{ newsletter.title }} - {{ month_year }}{% endblock %}
+
+{% block content %}
+<div style="text-align: center; margin-bottom: 30px;">
+    <img src="{{ newsletter.header_image }}" alt="Monthly Newsletter" 
+         style="max-width: 100%; height: auto; border-radius: 8px;">
+    
+    <h1 style="margin: 20px 0;">{{ newsletter.title }}</h1>
+    <p style="color: #666; font-size: 1.1em;">{{ newsletter.subtitle }}</p>
+</div>
+
+<!-- Featured Article -->
+{% if newsletter.featured_article %}
+<div style="margin-bottom: 40px;">
+    <div style="
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    ">
+        <img src="{{ newsletter.featured_article.image }}" 
+             alt="{{ newsletter.featured_article.title }}"
+             style="width: 100%; height: 300px; object-fit: cover;">
+        <div style="padding: 20px;">
+            <h2 style="margin: 0 0 10px 0;">{{ newsletter.featured_article.title }}</h2>
+            <p style="color: #666; margin-bottom: 20px;">
+                {{ newsletter.featured_article.excerpt }}
+            </p>
+            <a href="{{ newsletter.featured_article.url }}" class="button">
+                Read More
+            </a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Latest News -->
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">Latest Updates</h2>
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        {% for news in newsletter.latest_news %}
+        <div style="
+            flex: 0 1 calc(50% - 10px);
+            min-width: 250px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            <img src="{{ news.image }}" alt="{{ news.title }}"
+                 style="width: 100%; height: 200px; object-fit: cover;">
+            <div style="padding: 15px;">
+                <h3 style="margin: 0 0 10px 0;">{{ news.title }}</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    {{ news.summary }}
+                </p>
+                <a href="{{ news.url }}" style="color: var(--primary-color); text-decoration: none;">
+                    Read More →
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Product Highlights -->
+{% if newsletter.product_highlights %}
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">New Arrivals</h2>
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        {% for product in newsletter.product_highlights %}
+        <div style="
+            flex: 0 1 calc(33.333% - 14px);
+            min-width: 200px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            <img src="{{ product.image }}" alt="{{ product.name }}"
+                 style="width: 100%; height: 200px; object-fit: cover;">
+            <div style="padding: 15px;">
+                <h4 style="margin: 0 0 10px 0;">{{ product.name }}</h4>
+                <p style="color: #666; margin-bottom: 10px;">
+                    {{ product.description }}
+                </p>
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                ">
+                    <span style="font-weight: bold; font-size: 1.1em;">
+                        ${{ product.price|format_currency }}
+                    </span>
+                    <a href="{{ product.url }}" class="button">Shop Now</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Upcoming Events -->
+{% if newsletter.upcoming_events %}
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">Upcoming Events</h2>
+    
+    <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+        {% for event in newsletter.upcoming_events %}
+        <div style="
+            margin-bottom: {% if not loop.last %}20px{% else %}0{% endif %};
+            padding-bottom: {% if not loop.last %}20px{% else %}0{% endif %};
+            border-bottom: {% if not loop.last %}1px solid #dee2e6{% endif %};
+        ">
+            <h4 style="margin: 0 0 5px 0;">{{ event.title }}</h4>
+            <p style="color: #666; margin: 0 0 10px 0;">
+                <i class="fas fa-calendar"></i> {{ event.date|date }}<br>
+                <i class="fas fa-clock"></i> {{ event.time }}<br>
+                <i class="fas fa-map-marker-alt"></i> {{ event.location }}
+            </p>
+            <p style="margin: 0 0 10px 0;">{{ event.description }}</p>
+            <a href="{{ event.registration_url }}" class="button">Register Now</a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tips & Tutorials -->
+{% if newsletter.tips_tutorials %}
+<div style="margin-bottom: 40px;">
+    <h2 style="margin-bottom: 20px;">Tips & Tutorials</h2>
+    
+    <div style="display: flex; flex-wrap: wrap; gap: 20px;">
+        {% for tip in newsletter.tips_tutorials %}
+        <div style="
+            flex: 0 1 calc(50% - 10px);
+            min-width: 250px;
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        ">
+            <div style="display: flex; gap: 15px;">
+                <div style="
+                    width: 50px;
+                    height: 50px;
+                    background-color: var(--primary-color);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 1.5em;
+                ">
+                    <i class="fas fa-{{ tip.icon }}"></i>
+                </div>
+                <div>
+                    <h4 style="margin: 0 0 10px 0;">{{ tip.title }}</h4>
+                    <p style="color: #666; margin: 0;">{{ tip.content }}</p>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Social Media -->
+<div style="text-align: center; margin-bottom: 30px;">
+    <h3 style="margin-bottom: 15px;">Follow Us</h3>
+    <div style="display: flex; justify-content: center; gap: 15px;">
+        {% for social in newsletter.social_links %}
+        <a href="{{ social.url }}" style="
+            width: 40px;
+            height: 40px;
+            background-color: {{ social.color }};
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-decoration: none;
+        ">
+            <i class="fab fa-{{ social.icon }}"></i>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div style="font-size: 12px; color: #666; text-align: center; margin-top: 30px;">
+    <p>
+        You received this email because you subscribed to our newsletter.<br>
+        To update your preferences or unsubscribe, 
+        <a href="{{ preferences_url }}">click here</a>.
+    </p>
+</div>
+{% endblock %} 

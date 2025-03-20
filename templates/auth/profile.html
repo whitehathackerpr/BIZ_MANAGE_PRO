@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <!-- Profile Card -->
+        <div class="card mb-4">
+            <div class="card-body text-center">
+                <div class="position-relative mb-3">
+                    <img src="{{ current_user.avatar_url }}" class="rounded-circle img-thumbnail" 
+                         width="150" height="150" alt="Profile Picture">
+                    <button class="btn btn-sm btn-primary position-absolute bottom-0 end-0" 
+                            onclick="document.getElementById('avatarInput').click()">
+                        <i class="fas fa-camera"></i>
+                    </button>
+                    <input type="file" id="avatarInput" class="d-none" accept="image/*">
+                </div>
+                <h4 class="mb-1">{{ current_user.name }}</h4>
+                <p class="text-muted mb-3">{{ current_user.role.name }}</p>
+                <div class="d-flex justify-content-center mb-3">
+                    <span class="badge bg-primary me-2">
+                        <i class="fas fa-clock"></i> Member since {{ current_user.created_at|date }}
+                    </span>
+                    <span class="badge bg-success">
+                        <i class="fas fa-check-circle"></i> Active
+                    </span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="row text-center">
+                    <div class="col">
+                        <h5>{{ stats.total_sales }}</h5>
+                        <small class="text-muted">Sales</small>
+                    </div>
+                    <div class="col">
+                        <h5>${{ stats.revenue|format_currency }}</h5>
+                        <small class="text-muted">Revenue</small>
+                    </div>
+                    <div class="col">
+                        <h5>{{ stats.login_count }}</h5>
+                        <small class="text-muted">Logins</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="#" class="list-group-item list-group-item-action" 
+                   onclick="changePassword()">
+                    <i class="fas fa-key me-2"></i> Change Password
+                </a>
+                <a href="#" class="list-group-item list-group-item-action" 
+                   onclick="setupTwoFactor()">
+                    <i class="fas fa-shield-alt me-2"></i> Setup Two-Factor Auth
+                </a>
+                <a href="#" class="list-group-item list-group-item-action" 
+                   onclick="manageNotifications()">
+                    <i class="fas fa-bell me-2"></i> Notification Settings
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <!-- Profile Settings -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Profile Settings</h5>
+            </div>
+            <div class="card-body">
+                <form id="profileForm" method="POST">
+                    {{ form.hidden_tag() }}
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            {{ form.name.label(class="form-label") }}
+                            {{ form.name(class="form-control") }}
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control") }}
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        {{ form.phone.label(class="form-label") }}
+                        {{ form.phone(class="form-control") }}
+                    </div>
+                    <div class="mb-3">
+                        {{ form.bio.label(class="form-label") }}
+                        {{ form.bio(class="form-control", rows=3) }}
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    {% for activity in recent_activity %}
+                    <div class="timeline-item">
+                        <div class="timeline-marker bg-{{ activity.type_color }}">
+                            <i class="fas fa-{{ activity.icon }}"></i>
+                        </div>
+                        <div class="timeline-content">
+                            <h6 class="mb-0">{{ activity.title }}</h6>
+                            <small class="text-muted">{{ activity.timestamp|datetime }}</small>
+                            <p class="mb-0">{{ activity.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Password Modal -->
+<div class="modal fade" id="changePasswordModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="passwordForm">
+                    <div class="mb-3">
+                        <label class="form-label">Current Password</label>
+                        <input type="password" class="form-control" id="currentPassword" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" id="newPassword" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Confirm New Password</label>
+                        <input type="password" class="form-control" id="confirmPassword" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Two-Factor Setup Modal -->
+<div class="modal fade" id="twoFactorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Setup Two-Factor Authentication</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-3">
+                    <img id="qrCode" src="" alt="QR Code" class="img-fluid">
+                </div>
+                <p class="text-center">
+                    Scan this QR code with your authenticator app or enter the code manually:
+                </p>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" id="secretKey" readonly>
+                    <button class="btn btn-outline-secondary" type="button" onclick="copySecretKey()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <form id="verifyTwoFactorForm">
+                    <div class="mb-3">
+                        <label class="form-label">Enter Verification Code</label>
+                        <input type="text" class="form-control" id="verificationCode" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Verify & Enable</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
+{% endblock %} 

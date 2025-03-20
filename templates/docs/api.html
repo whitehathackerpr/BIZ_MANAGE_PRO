@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}API Documentation - BizManage Pro{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/prism.css') }}">
+<style>
+.endpoint {
+    padding: 1rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+}
+.endpoint-get { background-color: #e3f2fd; }
+.endpoint-post { background-color: #e8f5e9; }
+.endpoint-put { background-color: #fff3e0; }
+.endpoint-delete { background-color: #ffebee; }
+.method {
+    font-weight: bold;
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    color: white;
+}
+.method-get { background-color: #2196f3; }
+.method-post { background-color: #4caf50; }
+.method-put { background-color: #ff9800; }
+.method-delete { background-color: #f44336; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- API Navigation -->
+    <div class="col-md-3">
+        <div class="card sticky-top" style="top: 1rem;">
+            <div class="card-body">
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="Search API..." 
+                           id="searchApi">
+                    <button class="btn btn-outline-secondary" type="button">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+
+                <nav id="apiNav" class="nav flex-column">
+                    <a class="nav-link" href="#introduction">Introduction</a>
+                    <a class="nav-link" href="#authentication">Authentication</a>
+                    <a class="nav-link" href="#rate-limiting">Rate Limiting</a>
+                    <a class="nav-link" href="#errors">Error Handling</a>
+                    
+                    <div class="nav-section">
+                        <a class="nav-link" href="#products">Products</a>
+                        <nav class="nav flex-column ms-3">
+                            <a class="nav-link" href="#list-products">List Products</a>
+                            <a class="nav-link" href="#get-product">Get Product</a>
+                            <a class="nav-link" href="#create-product">Create Product</a>
+                            <a class="nav-link" href="#update-product">Update Product</a>
+                            <a class="nav-link" href="#delete-product">Delete Product</a>
+                        </nav>
+                    </div>
+
+                    <div class="nav-section">
+                        <a class="nav-link" href="#orders">Orders</a>
+                        <nav class="nav flex-column ms-3">
+                            <a class="nav-link" href="#list-orders">List Orders</a>
+                            <a class="nav-link" href="#get-order">Get Order</a>
+                            <a class="nav-link" href="#create-order">Create Order</a>
+                            <a class="nav-link" href="#update-order">Update Order</a>
+                        </nav>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Content -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-body">
+                <h1 id="introduction">API Documentation</h1>
+                <p class="lead">
+                    Welcome to the BizManage Pro API. This API enables you to integrate our 
+                    features into your applications.
+                </p>
+
+                <h2 id="authentication">Authentication</h2>
+                <p>
+                    All API requests require authentication using an API key. Include your API key
+                    in the request header:
+                </p>
+                <pre><code class="language-bash">Authorization: Bearer YOUR_API_KEY</code></pre>
+
+                <h2 id="rate-limiting">Rate Limiting</h2>
+                <p>
+                    API requests are limited to 1000 requests per hour per API key. Rate limit
+                    information is included in the response headers:
+                </p>
+                <pre><code class="language-text">X-RateLimit-Limit: 1000
+X-RateLimit-Remaining: 999
+X-RateLimit-Reset: 1635789600</code></pre>
+
+                <h2 id="errors">Error Handling</h2>
+                <p>
+                    The API uses standard HTTP response codes. Errors are returned in JSON format:
+                </p>
+                <pre><code class="language-json">{
+    "error": {
+        "code": "invalid_request",
+        "message": "The request was invalid",
+        "details": ["Field 'price' must be greater than 0"]
+    }
+}</code></pre>
+
+                <h2 id="products">Products API</h2>
+                
+                <div id="list-products" class="endpoint endpoint-get">
+                    <span class="method method-get">GET</span>
+                    <code>/api/v1/products</code>
+                    <p class="mt-2 mb-2">List all products with pagination and filtering options.</p>
+                    
+                    <h6>Query Parameters:</h6>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>page</td>
+                                <td>integer</td>
+                                <td>Page number (default: 1)</td>
+                            </tr>
+                            <tr>
+                                <td>per_page</td>
+                                <td>integer</td>
+                                <td>Items per page (default: 20, max: 100)</td>
+                            </tr>
+                            <tr>
+                                <td>category</td>
+                                <td>string</td>
+                                <td>Filter by category ID</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <h6>Example Response:</h6>
+                    <pre><code class="language-json">{
+    "data": [
+        {
+            "id": "prod_123",
+            "name": "Product Name",
+            "price": 29.99,
+            "stock": 100,
+            "category": "cat_456",
+            "created_at": "2024-01-01T12:00:00Z"
+        }
+    ],
+    "meta": {
+        "current_page": 1,
+        "total_pages": 5,
+        "total_items": 100
+    }
+}</code></pre>
+                </div>
+
+                <div id="create-product" class="endpoint endpoint-post">
+                    <span class="method method-post">POST</span>
+                    <code>/api/v1/products</code>
+                    <p class="mt-2 mb-2">Create a new product.</p>
+
+                    <h6>Request Body:</h6>
+                    <pre><code class="language-json">{
+    "name": "New Product",
+    "description": "Product description",
+    "price": 29.99,
+    "category_id": "cat_456",
+    "sku": "PRD-001",
+    "stock": 100
+}</code></pre>
+
+                    <h6>Example Response:</h6>
+                    <pre><code class="language-json">{
+    "data": {
+        "id": "prod_789",
+        "name": "New Product",
+        "price": 29.99,
+        "stock": 100,
+        "created_at": "2024-01-01T12:00:00Z"
+    }
+}</code></pre>
+                </div>
+
+                <!-- Additional endpoints... -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/prism.js') }}"></script>
+<script>
+// Highlight code blocks
+Prism.highlightAll();
+
+// Smooth scroll for navigation
+document.querySelectorAll('#apiNav a').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    });
+});
+
+// Active section highlighting
+const sections = document.querySelectorAll('h1, h2');
+window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (pageYOffset >= sectionTop - 60) {
+            current = section.getAttribute('id');
+        }
+    });
+
+    document.querySelectorAll('#apiNav a').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href').slice(1) === current) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
+{% endblock %} 

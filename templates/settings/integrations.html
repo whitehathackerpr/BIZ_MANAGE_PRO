@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}Integration Settings - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Settings Navigation -->
+    <div class="col-md-3">
+        {% include 'settings/_nav.html' %}
+    </div>
+
+    <div class="col-md-9">
+        <!-- Integration Overview -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Integrations</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
+                            data-bs-target="#addIntegrationModal">
+                        <i class="fas fa-plus"></i> Add Integration
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Integration Categories -->
+                <ul class="nav nav-tabs" role="tablist">
+                    {% for category in integration_categories %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if loop.first %}active{% endif %}" 
+                           data-bs-toggle="tab"
+                           href="#{{ category.id }}"
+                           role="tab">
+                            <i class="fas fa-{{ category.icon }} me-2"></i>
+                            {{ category.name }}
+                            {% if category.connected_count > 0 %}
+                            <span class="badge bg-primary ms-2">
+                                {{ category.connected_count }}
+                            </span>
+                            {% endif %}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <!-- Integration List -->
+                <div class="tab-content mt-4">
+                    {% for category in integration_categories %}
+                    <div class="tab-pane fade {% if loop.first %}show active{% endif %}" 
+                         id="{{ category.id }}"
+                         role="tabpanel">
+                        
+                        <div class="row g-4">
+                            {% for integration in category.integrations %}
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <img src="{{ integration.logo }}" 
+                                                 alt="{{ integration.name }}"
+                                                 class="me-3"
+                                                 style="width: 40px; height: 40px;">
+                                            <div>
+                                                <h6 class="mb-0">{{ integration.name }}</h6>
+                                                <small class="text-muted">
+                                                    {{ integration.description }}
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        {% if integration.connected %}
+                                        <div class="mb-3">
+                                            <span class="badge bg-success">
+                                                <i class="fas fa-check me-1"></i> Connected
+                                            </span>
+                                            {% if integration.last_sync %}
+                                            <small class="text-muted ms-2">
+                                                Last synced: {{ integration.last_sync|datetime }}
+                                            </small>
+                                            {% endif %}
+                                        </div>
+
+                                        <div class="mb-3">
+                                            <button class="btn btn-sm btn-outline-primary me-2"
+                                                    onclick="configureIntegration('{{ integration.id }}')">
+                                                <i class="fas fa-cog"></i> Configure
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary me-2"
+                                                    onclick="syncIntegration('{{ integration.id }}')">
+                                                <i class="fas fa-sync"></i> Sync Now
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    onclick="disconnectIntegration('{{ integration.id }}')">
+                                                Disconnect
+                                            </button>
+                                        </div>
+                                        {% else %}
+                                        <button class="btn btn-primary"
+                                                onclick="connectIntegration('{{ integration.id }}')">
+                                            Connect {{ integration.name }}
+                                        </button>
+                                        {% endif %}
+
+                                        {% if integration.features %}
+                                        <div class="mt-3">
+                                            <small class="text-muted">Features:</small>
+                                            <div class="mt-2">
+                                                {% for feature in integration.features %}
+                                                <span class="badge bg-light text-dark me-2 mb-2">
+                                                    {{ feature }}
+                                                </span>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- API Keys -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">API Keys</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
+                            data-bs-target="#generateApiKeyModal">
+                        <i class="fas fa-plus"></i> Generate New Key
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Key Name</th>
+                                <th>Created</th>
+                                <th>Last Used</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for key in api_keys %}
+                            <tr>
+                                <td>{{ key.name }}</td>
+                                <td>{{ key.created_at|datetime }}</td>
+                                <td>{{ key.last_used|datetime or 'Never' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ key.status_color }}">
+                                        {{ key.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary"
+                                                onclick="viewApiKey('{{ key.id }}')">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger"
+                                                onclick="revokeApiKey('{{ key.id }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Webhooks -->
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Webhooks</h5>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
+                            data-bs-target="#addWebhookModal">
+                        <i class="fas fa-plus"></i> Add Webhook
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Endpoint</th>
+                                <th>Events</th>
+                                <th>Status</th>
+                                <th>Last Delivery</th>
+                                <th>Success Rate</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for webhook in webhooks %}
+                            <tr>
+                                <td>{{ webhook.endpoint }}</td>
+                                <td>
+                                    {% for event in webhook.events %}
+                                    <span class="badge bg-light text-dark me-1">
+                                        {{ event }}
+                                    </span>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ webhook.status_color }}">
+                                        {{ webhook.status }}
+                                    </span>
+                                </td>
+                                <td>{{ webhook.last_delivery|datetime or 'Never' }}</td>
+                                <td>
+                                    <div class="progress" style="height: 6px;">
+                                        <div class="progress-bar bg-{{ webhook.success_rate_color }}"
+                                             role="progressbar"
+                                             style="width: {{ webhook.success_rate }}%">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">
+                                        {{ webhook.success_rate }}%
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-secondary"
+                                                onclick="editWebhook('{{ webhook.id }}')">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-outline-primary"
+                                                onclick="testWebhook('{{ webhook.id }}')">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <button class="btn btn-outline-danger"
+                                                onclick="deleteWebhook('{{ webhook.id }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modals -->
+{% include 'settings/modals/add_integration.html' %}
+{% include 'settings/modals/generate_api_key.html' %}
+{% include 'settings/modals/add_webhook.html' %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Integration handlers
+async function connectIntegration(integrationId) {
+    // Implementation for connecting integration
+}
+
+async function disconnectIntegration(integrationId) {
+    // Implementation for disconnecting integration
+}
+
+async function configureIntegration(integrationId) {
+    // Implementation for configuring integration
+}
+
+async function syncIntegration(integrationId) {
+    // Implementation for syncing integration
+}
+
+// API key handlers
+async function viewApiKey(keyId) {
+    // Implementation for viewing API key
+}
+
+async function revokeApiKey(keyId) {
+    // Implementation for revoking API key
+}
+
+// Webhook handlers
+async function editWebhook(webhookId) {
+    // Implementation for editing webhook
+}
+
+async function testWebhook(webhookId) {
+    // Implementation for testing webhook
+}
+
+async function deleteWebhook(webhookId) {
+    // Implementation for deleting webhook
+}
+</script>
+{% endblock %} 

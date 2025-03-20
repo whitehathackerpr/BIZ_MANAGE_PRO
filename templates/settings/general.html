@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <!-- Settings Navigation -->
+        <div class="card mb-4">
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('settings.general') }}" 
+                       class="list-group-item list-group-item-action active">
+                        <i class="fas fa-cog me-2"></i> General Settings
+                    </a>
+                    <a href="{{ url_for('settings.company') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-building me-2"></i> Company Profile
+                    </a>
+                    <a href="{{ url_for('settings.invoice') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-file-invoice me-2"></i> Invoice Settings
+                    </a>
+                    <a href="{{ url_for('settings.tax') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-percent me-2"></i> Tax Settings
+                    </a>
+                    <a href="{{ url_for('settings.email') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-envelope me-2"></i> Email Settings
+                    </a>
+                    <a href="{{ url_for('settings.backup') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-database me-2"></i> Backup & Restore
+                    </a>
+                    <a href="{{ url_for('settings.integrations') }}" 
+                       class="list-group-item list-group-item-action">
+                        <i class="fas fa-plug me-2"></i> Integrations
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <!-- General Settings -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">General Settings</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="settingsForm">
+                    {{ form.hidden_tag() }}
+                    
+                    <h6 class="mb-3">System Preferences</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            {{ form.timezone.label(class="form-label") }}
+                            {{ form.timezone(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.date_format.label(class="form-label") }}
+                            {{ form.date_format(class="form-select") }}
+                        </div>
+                    </div>
+
+                    <h6 class="mb-3">Currency Settings</h6>
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            {{ form.currency.label(class="form-label") }}
+                            {{ form.currency(class="form-select") }}
+                        </div>
+                        <div class="col-md-6">
+                            {{ form.currency_symbol_position.label(class="form-label") }}
+                            {{ form.currency_symbol_position(class="form-select") }}
+                        </div>
+                    </div>
+
+                    <h6 class="mb-3">Security Settings</h6>
+                    <div class="mb-4">
+                        <div class="form-check mb-2">
+                            {{ form.require_2fa.raw }}
+                            {{ form.require_2fa.label(class="form-check-label") }}
+                        </div>
+                        <div class="form-check mb-2">
+                            {{ form.session_timeout_enabled.raw }}
+                            {{ form.session_timeout_enabled.label(class="form-check-label") }}
+                        </div>
+                        <div class="ms-4">
+                            {{ form.session_timeout.label(class="form-label") }}
+                            {{ form.session_timeout(class="form-control") }}
+                            <small class="text-muted">Time in minutes</small>
+                        </div>
+                    </div>
+
+                    <h6 class="mb-3">Notification Settings</h6>
+                    <div class="mb-4">
+                        <div class="form-check mb-2">
+                            {{ form.low_stock_alerts.raw }}
+                            {{ form.low_stock_alerts.label(class="form-check-label") }}
+                        </div>
+                        <div class="form-check mb-2">
+                            {{ form.daily_report_email.raw }}
+                            {{ form.daily_report_email.label(class="form-check-label") }}
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Save Changes
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+{% endblock %} 

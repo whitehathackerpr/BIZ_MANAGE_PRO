@@ -1,0 +1,235 @@
+openapi: 3.0.0
+info:
+  title: Business Management System API
+  version: 1.0.0
+  description: API documentation for the Business Management System
+
+servers:
+  - url: http://localhost:5000/api
+    description: Development server
+  - url: https://api.example.com/api
+    description: Production server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        cost:
+          type: number
+        stock:
+          type: integer
+        reorder_point:
+          type: integer
+        category_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        order_number:
+          type: string
+        user_id:
+          type: integer
+        status:
+          type: string
+          enum: [pending, processing, shipped, delivered, cancelled]
+        total_amount:
+          type: number
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        username:
+          type: string
+        is_active:
+          type: boolean
+        is_admin:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /inventory/products:
+    get:
+      summary: Get products list
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+          description: Items per page
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter by category
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+                  total_pages:
+                    type: integer
+                  current_page:
+                    type: integer
+
+  /inventory/adjust:
+    post:
+      summary: Adjust product stock
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_id:
+                  type: integer
+                quantity:
+                  type: integer
+                type:
+                  type: string
+                  enum: [receive, adjust, return]
+                notes:
+                  type: string
+      responses:
+        '200':
+          description: Stock adjusted successfully
+        '400':
+          description: Invalid request
+        '404':
+          description: Product not found
+
+  /reports/data:
+    get:
+      summary: Get report data
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: start_date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: report_type
+          required: true
+          schema:
+            type: string
+            enum: [sales, inventory, product_performance]
+      responses:
+        '200':
+          description: Report data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: object
+                  charts_data:
+                    type: object
+                  table_data:
+                    type: array
+
+  /reports/export:
+    get:
+      summary: Export report
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: start_date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          required: true
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: report_type
+          required: true
+          schema:
+            type: string
+            enum: [sales, inventory, product_performance]
+        - in: query
+          name: format
+          required: true
+          schema:
+            type: string
+            enum: [excel, pdf]
+      responses:
+        '200':
+          description: Report file
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary 

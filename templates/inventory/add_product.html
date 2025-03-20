@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block title %}Add Product - BizManage Pro{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-plus-circle"></i> 
+            {% if product %}Edit{% else %}Add New{% endif %} Product
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" enctype="multipart/form-data" id="productForm">
+            {{ form.hidden_tag() }}
+            
+            <div class="row">
+                <div class="col-md-8">
+                    <!-- Basic Information -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Basic Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.name.label(class="form-label") }}
+                                    {{ form.name(class="form-control") }}
+                                    {% if form.name.errors %}
+                                        {% for error in form.name.errors %}
+                                            <div class="text-danger">{{ error }}</div>
+                                        {% endfor %}
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.sku.label(class="form-label") }}
+                                    {{ form.sku(class="form-control") }}
+                                    <button type="button" class="btn btn-link btn-sm" 
+                                            onclick="generateSKU()">Generate SKU</button>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form.description.label(class="form-label") }}
+                                {{ form.description(class="form-control", rows=3) }}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    {{ form.category_id.label(class="form-label") }}
+                                    {{ form.category_id(class="form-select") }}
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    {{ form.barcode.label(class="form-label") }}
+                                    {{ form.barcode(class="form-control") }}
+                                    <button type="button" class="btn btn-link btn-sm" 
+                                            onclick="generateBarcode()">Generate Barcode</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing and Inventory -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Pricing & Inventory</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    {{ form.price.label(class="form-label") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        {{ form.price(class="form-control") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.cost.label(class="form-label") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        {{ form.cost(class="form-control") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.tax_rate.label(class="form-label") }}
+                                    <div class="input-group">
+                                        {{ form.tax_rate(class="form-control") }}
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    {{ form.stock.label(class="form-label") }}
+                                    {{ form.stock(class="form-control") }}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.reorder_point.label(class="form-label") }}
+                                    {{ form.reorder_point(class="form-control") }}
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    {{ form.reorder_quantity.label(class="form-label") }}
+                                    {{ form.reorder_quantity(class="form-control") }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <!-- Product Image -->
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Product Image</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="text-center mb-3">
+                                <img id="imagePreview" src="{{ product.image_url if product else '#' }}" 
+                                     class="img-fluid mb-2" alt="Product Image">
+                                {{ form.image(class="form-control", onchange="previewImage(this)") }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Settings -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0">Additional Settings</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.is_active(class="form-check-input") }}
+                                    {{ form.is_active.label(class="form-check-label") }}
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    {{ form.track_inventory(class="form-check-input") }}
+                                    {{ form.track_inventory.label(class="form-check-label") }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-end mt-3">
+                <a href="{{ url_for('inventory.products') }}" class="btn btn-secondary">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> 
+                    {% if product %}Update{% else %}Save{% endif %} Product
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('imagePreview').src = e.target.result;
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function generateSKU() {
+    const category = document.getElementById('category_id').value;
+    const name = document.getElementById('name').value;
+    fetch('/api/inventory/generate-sku', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            category_id: category,
+            name: name
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('sku').value = data.sku;
+    });
+}
+
+function generateBarcode() {
+    fetch('/api/inventory/generate-barcode')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('barcode').value = data.barcode;
+        });
+}
+</script>
+{% endblock %} 
