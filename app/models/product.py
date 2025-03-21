@@ -21,54 +21,67 @@ class Category(db.Model):
         return f'<Category {self.name}>'
 
 class Product(db.Model):
+    __tablename__ = 'products'
+    
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(128), nullable=False)
-    slug = db.Column(db.String(128), unique=True, nullable=False)
-    sku = db.Column(db.String(32), unique=True, nullable=False)
+    name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
-    price = db.Column(db.Numeric(10, 2), nullable=False)
-    cost = db.Column(db.Numeric(10, 2))
+    price = db.Column(db.Float, nullable=False)
     stock = db.Column(db.Integer, default=0)
-    reorder_point = db.Column(db.Integer, default=0)
-    category_id = db.Column(db.Integer, db.ForeignKey('category.id'))
-    status = db.Column(db.String(16), default='active')
+    category = db.Column(db.String(50))
+    image_url = db.Column(db.String(200))
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    images = db.relationship('ProductImage', backref='product', lazy='dynamic')
-    variants = db.relationship('ProductVariant', backref='product', lazy='dynamic')
     order_items = db.relationship('OrderItem', backref='product', lazy='dynamic')
-
-    def __repr__(self):
-        return f'<Product {self.name}>'
-
+    images = db.relationship('ProductImage', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    variants = db.relationship('ProductVariant', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    
+    @property
+    def formatted_price(self):
+        return f"${self.price:.2f}"
+    
+    @property
+    def stock_status(self):
+        if self.stock <= 0:
+            return "Out of Stock"
+        elif self.stock < 10:
+            return "Low Stock"
+        return "In Stock"
+    
     def to_dict(self):
         return {
             'id': self.id,
             'name': self.name,
-            'slug': self.slug,
-            'sku': self.sku,
             'description': self.description,
-            'price': float(self.price),
+            'price': self.price,
             'stock': self.stock,
-            'status': self.status,
-            'category': self.category.name if self.category else None,
-            'images': [img.url for img in self.images],
-            'variants': [variant.to_dict() for variant in self.variants]
+            'category': self.category,
+            'image_url': self.image_url,
+            'is_active': self.is_active,
+            'stock_status': self.stock_status
         }
+    
+    def __repr__(self):
+        return f'<Product {self.name}>'
 
 class ProductImage(db.Model):
+    __tablename__ = 'product_images'
+    
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     filename = db.Column(db.String(256), nullable=False)
     url = db.Column(db.String(512), nullable=False)
     is_primary = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class ProductVariant(db.Model):
+    __tablename__ = 'product_variants'
+    
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     name = db.Column(db.String(128), nullable=False)
     sku = db.Column(db.String(32), unique=True, nullable=False)
     price_adjustment = db.Column(db.Numeric(10, 2), default=0)

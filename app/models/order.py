@@ -1,19 +1,29 @@
 from datetime import datetime
 import random
 import string
-from app.extensions import db
+from app import db
+from .address import Address
 
 class Order(db.Model):
     __tablename__ = 'orders'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    order_date = db.Column(db.DateTime, default=datetime.utcnow)
     total_amount = db.Column(db.Float, nullable=False)
     status = db.Column(db.String(20), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = db.relationship('User', back_populates='orders')
+    items = db.relationship('OrderItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
+    
+    @property
+    def status_display(self):
+        return self.status.capitalize()
+    
+    @property
+    def formatted_total(self):
+        return f"${self.total_amount:.2f}"
     
     def __repr__(self):
         return f'<Order {self.id}>'
@@ -43,54 +53,36 @@ class Order(db.Model):
         }
 
 class OrderItem(db.Model):
+    __tablename__ = 'order_items'
+    
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
-    variant_id = db.Column(db.Integer, db.ForeignKey('product_variant.id'))
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Numeric(10, 2), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    
+    # Relationships
+    product = db.relationship('Product', backref='order_items')
     
     @property
     def subtotal(self):
-        return self.price * self.quantity
+        return self.quantity * self.price
+    
+    def __repr__(self):
+        return f'<OrderItem {self.id}>'
     
     def to_dict(self):
         return {
             'id': self.id,
             'product': self.product.to_dict(),
-            'variant': self.variant.to_dict() if self.variant else None,
             'quantity': self.quantity,
             'price': float(self.price),
             'subtotal': float(self.subtotal)
         }
 
-class Address(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    name = db.Column(db.String(128), nullable=False)
-    street = db.Column(db.String(256), nullable=False)
-    city = db.Column(db.String(128), nullable=False)
-    state = db.Column(db.String(128), nullable=False)
-    postal_code = db.Column(db.String(32), nullable=False)
-    country = db.Column(db.String(128), nullable=False)
-    phone = db.Column(db.String(32))
-    is_default = db.Column(db.Boolean, default=False)
-    
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'street': self.street,
-            'city': self.city,
-            'state': self.state,
-            'postal_code': self.postal_code,
-            'country': self.country,
-            'phone': self.phone
-        }
-
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
     amount = db.Column(db.Numeric(10, 2), nullable=False)
     payment_method = db.Column(db.String(64), nullable=False)
     transaction_id = db.Column(db.String(128))

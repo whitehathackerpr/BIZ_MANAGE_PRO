@@ -1,0 +1,137 @@
+.help-center {
+  position: relative;
+}
+
+.help-button {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+  text-align: left;
+}
+
+.help-button:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-hover);
+}
+
+.help-button.collapsed {
+  justify-content: center;
+  padding: 0.75rem;
+}
+
+.help-icon {
+  font-size: 1.25rem;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.help-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.help-arrow {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.help-arrow.open {
+  transform: rotate(180deg);
+}
+
+.help-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 0.5rem;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  animation: dropdownFadeIn 0.2s ease;
+}
+
+.help-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.help-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.help-item-icon {
+  font-size: 1.25rem;
+  min-width: 1.5rem;
+  text-align: center;
+}
+
+.help-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.help-item-title {
+  font-weight: 500;
+}
+
+.help-item-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .help-dropdown {
+    background-color: var(--bg-primary-dark);
+    border-color: var(--border-color-dark);
+  }
+
+  .help-item {
+    color: var(--text-primary-dark);
+  }
+
+  .help-item-description {
+    color: var(--text-secondary-dark);
+  }
+}
+
+/* Mobile support */
+@media (max-width: 768px) {
+  .help-dropdown {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+    border-radius: 8px 8px 0 0;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+} 
