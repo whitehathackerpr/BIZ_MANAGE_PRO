@@ -1,47 +1,69 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../api/auth';
+import axios from 'axios';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [themeMode, setThemeMode] = useState('light');
 
   useEffect(() => {
-    const user = authApi.getCurrentUser();
-    if (user) {
-      setUser(user);
+    // Check for stored token and validate it
+    const token = localStorage.getItem('token');
+    if (token) {
+      validateToken(token);
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
-  const login = async (credentials) => {
+  const validateToken = async (token) => {
     try {
-      const response = await authApi.login(credentials);
-      setUser(response.user);
-      return response;
+      const response = await axios.get('/api/auth/validate', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUser(response.data.user);
     } catch (error) {
-      throw error;
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post('/api/auth/login', { email, password });
+      const { access_token, user } = response.data;
+      localStorage.setItem('token', access_token);
+      setUser(user);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Login failed'
+      };
     }
   };
 
   const register = async (userData) => {
     try {
-      const response = await authApi.register(userData);
-      return response;
+      const response = await axios.post('/api/auth/register', userData);
+      const { access_token, user } = response.data;
+      localStorage.setItem('token', access_token);
+      setUser(user);
+      return { success: true };
     } catch (error) {
-      throw error;
+      return {
+        success: false,
+        error: error.response?.data?.message || 'Registration failed'
+      };
     }
   };
 
   const logout = () => {
-    authApi.logout();
+    localStorage.removeItem('token');
     setUser(null);
-  };
-
-  const toggleTheme = () => {
-    setThemeMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
   const value = {
@@ -50,16 +72,13 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
-    isAuthenticated: !!user,
-    themeMode,
-    toggleTheme,
   };
 
-  if (loading) {
-    return <div>Loading...</div>; // You can replace this with a proper loading component
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = () => {

@@ -1,120 +1,114 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
   Typography,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Switch,
-  Divider,
-  Button,
+  Tabs,
+  Tab,
+  CircularProgress,
 } from '@mui/material';
 import {
-  Notifications as NotificationsIcon,
   Security as SecurityIcon,
-  Language as LanguageIcon,
-  Palette as PaletteIcon,
-  Backup as BackupIcon,
+  Business as BusinessIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
-import './Settings.css';
+import { useQuery } from '@tanstack/react-query';
+import AccountSettings from '../components/settings/AccountSettings';
+import BusinessSettings from '../components/settings/BusinessSettings';
+import SystemSettings from '../components/settings/SystemSettings';
+import {
+  getUserProfile,
+  getBusinessSettings,
+  getSystemSettings,
+} from '../services/settingsService';
 
-const Settings = () => {
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+
   return (
-    <Box className="settings-container">
-      <Typography variant="h4" component="h1" className="settings-title">
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`settings-tabpanel-${index}`}
+      aria-labelledby={`settings-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function Settings() {
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Fetch settings data
+  const { data: userProfile, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: getUserProfile,
+  });
+
+  const { data: businessSettings, isLoading: isLoadingBusiness } = useQuery({
+    queryKey: ['businessSettings'],
+    queryFn: getBusinessSettings,
+  });
+
+  const { data: systemSettings, isLoading: isLoadingSystem } = useQuery({
+    queryKey: ['systemSettings'],
+    queryFn: getSystemSettings,
+  });
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
+  if (isLoadingProfile || isLoadingBusiness || isLoadingSystem) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <Typography variant="h4" gutterBottom>
         Settings
       </Typography>
 
-      <Paper className="settings-section">
-        <Typography variant="h6" component="h2" className="section-title">
-          Account Settings
-        </Typography>
-        <List>
-          <ListItem>
-            <ListItemIcon>
-              <NotificationsIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Email Notifications"
-              secondary="Receive notifications about your account activity"
-            />
-            <Switch defaultChecked />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon>
-              <SecurityIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Two-Factor Authentication"
-              secondary="Add an extra layer of security to your account"
-            />
-            <Switch />
-          </ListItem>
-        </List>
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab
+            icon={<SecurityIcon />}
+            label="Account"
+          />
+          <Tab
+            icon={<BusinessIcon />}
+            label="Business"
+          />
+          <Tab
+            icon={<SettingsIcon />}
+            label="System"
+          />
+        </Tabs>
       </Paper>
 
-      <Paper className="settings-section">
-        <Typography variant="h6" component="h2" className="section-title">
-          Appearance
-        </Typography>
-        <List>
-          <ListItem>
-            <ListItemIcon>
-              <PaletteIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Dark Mode"
-              secondary="Switch between light and dark theme"
-            />
-            <Switch />
-          </ListItem>
-          <ListItem>
-            <ListItemIcon>
-              <LanguageIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Language"
-              secondary="Change the interface language"
-            />
-            <Button variant="outlined" size="small">
-              English
-            </Button>
-          </ListItem>
-        </List>
+      <Paper>
+        <TabPanel value={activeTab} index={0}>
+          <AccountSettings userProfile={userProfile} />
+        </TabPanel>
+        <TabPanel value={activeTab} index={1}>
+          <BusinessSettings businessSettings={businessSettings} />
+        </TabPanel>
+        <TabPanel value={activeTab} index={2}>
+          <SystemSettings systemSettings={systemSettings} />
+        </TabPanel>
       </Paper>
-
-      <Paper className="settings-section">
-        <Typography variant="h6" component="h2" className="section-title">
-          Data Management
-        </Typography>
-        <List>
-          <ListItem>
-            <ListItemIcon>
-              <BackupIcon />
-            </ListItemIcon>
-            <ListItemText
-              primary="Data Export"
-              secondary="Export your account data"
-            />
-            <Button variant="outlined" size="small">
-              Export
-            </Button>
-          </ListItem>
-        </List>
-      </Paper>
-
-      <Box className="settings-actions">
-        <Button variant="contained" color="primary">
-          Save Changes
-        </Button>
-        <Button variant="outlined" color="error">
-          Reset to Default
-        </Button>
-      </Box>
     </Box>
   );
-};
+}
 
 export default Settings; 
