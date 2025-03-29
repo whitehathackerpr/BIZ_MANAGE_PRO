@@ -1,39 +1,56 @@
-# BIZ_MANAGE_PRO - Advanced Business Management System
+# Business Management System
 
-A comprehensive, real-time business management system with multi-branch support, advanced analytics, and modern UI.
+A comprehensive business management system with features for inventory management, sales tracking, employee management, and analytics.
 
-## 🌟 Features
+## Features
 
-### Core Features
-- 📊 Real-time Dashboard with Key Metrics
-- 📦 Advanced Inventory Management
-- 👥 Employee Management & Attendance
-- 💰 Sales & Transaction Processing
-- 🏷️ Barcode Integration
-- 📱 Responsive Design for All Devices
+- User Authentication and Authorization
+- Multi-branch Support
+- Inventory Management
+- Sales Tracking
+- Employee Management
+- Customer Management
+- Supplier Management
+- Analytics and Reporting
+- Barcode Integration
+- Real-time Notifications
+- Email Notifications
+- File Upload Support
+- API Rate Limiting
 
-### Advanced Features
-- 📈 Business Analytics & Insights
-- 🔮 Predictive Analytics
-- 📊 Custom Report Generation
-- 🔔 Real-time Notifications
-- 🔒 Role-based Access Control
-- 🌐 Multi-branch Support
+## Tech Stack
 
-## 🚀 Getting Started
-
-### Prerequisites
+### Backend
 - Python 3.8+
-- Node.js 14+
-- PostgreSQL 12+
-- Redis (for real-time features)
+- Flask
+- PostgreSQL
+- Redis
+- SQLAlchemy
+- Flask-JWT-Extended
+- Flask-SocketIO
+- Flask-Mail
+- Flask-Limiter
 
-### Installation
+### Frontend
+- React
+- Material-UI
+- Redux
+- Chart.js
+- Socket.IO Client
+
+## Prerequisites
+
+- Python 3.8 or higher
+- Node.js 14 or higher
+- PostgreSQL 12 or higher
+- Redis 6 or higher
+
+## Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/BIZ_MANAGE_PRO.git
-cd BIZ_MANAGE_PRO
+git clone https://github.com/yourusername/biz-manage-pro.git
+cd biz-manage-pro
 ```
 
 2. Set up the backend:
@@ -42,41 +59,58 @@ cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your configuration
 ```
 
-3. Set up the frontend:
+3. Set up the database:
 ```bash
-cd frontend
-npm install
-```
+# Create the database
+createdb biz_manage
 
-4. Configure environment variables:
-```bash
-# backend/.env
-DATABASE_URL=postgresql://user:password@localhost:5432/biz_manage
-JWT_SECRET_KEY=your-secret-key
-REDIS_URL=redis://localhost:6379
+# Initialize migrations
+flask db init
 
-# frontend/.env
-REACT_APP_API_URL=http://localhost:5000
-REACT_APP_WS_URL=ws://localhost:5000
-```
+# Create initial migration
+flask db migrate -m "Initial migration"
 
-5. Initialize the database:
-```bash
-cd backend
+# Apply migrations
 flask db upgrade
+
+# Initialize database with default data
+python init_db.py
 ```
 
-### Running the Application
+4. Set up the frontend:
+```bash
+cd ../frontend
+npm install
+cp .env.example .env
+# Edit .env with your configuration
+```
 
-1. Start the backend server:
+## Running the Application
+
+1. Start Redis:
+```bash
+redis-server
+```
+
+2. Start the backend (choose one method):
+
+Method 1 - Using Flask CLI:
 ```bash
 cd backend
 flask run
 ```
 
-2. Start the frontend development server:
+Method 2 - Using development server:
+```bash
+cd backend
+python dev.py
+```
+
+3. Start the frontend:
 ```bash
 cd frontend
 npm start
@@ -85,79 +119,80 @@ npm start
 The application will be available at:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:5000
-- API Documentation: http://localhost:5000/docs
 
-## 📚 Documentation
+## Development
 
-- [API Documentation](docs/api.md)
-- [Database Schema](docs/database.md)
-- [Deployment Guide](docs/deployment.md)
-- [Contributing Guidelines](docs/contributing.md)
-- [Security Guidelines](docs/security.md)
+### Backend Development
+```bash
+cd backend
+flask shell  # For interactive Python shell
+flask db migrate -m "migration message"  # For database migrations
+flask db upgrade  # To apply migrations
+```
 
-## 🏗️ Architecture
+### Frontend Development
+```bash
+cd frontend
+npm run build  # For production build
+npm test  # For running tests
+```
 
-### Backend
-- Flask with SQLAlchemy ORM
-- PostgreSQL database
-- Redis for caching and real-time features
-- JWT authentication
-- WebSocket support
+## Troubleshooting
 
-### Frontend
-- React with Material-UI
-- Redux for state management
-- WebSocket for real-time updates
-- Responsive design
-- Progressive Web App support
+### Common Issues
 
-## 🔒 Security
+1. Database Connection Issues:
+   - Ensure PostgreSQL is running
+   - Check database credentials in .env file
+   - Verify database exists: `createdb biz_manage`
 
-- JWT-based authentication
-- Role-based access control
-- API rate limiting
-- Input validation and sanitization
-- Secure password hashing
-- HTTPS support
+2. Redis Connection Issues:
+   - Ensure Redis server is running
+   - Check Redis URL in .env file
 
-## 📊 Analytics & Reporting
+3. Migration Issues:
+   - Delete migrations folder and database
+   - Run `flask db init` again
+   - Run `flask db migrate -m "Initial migration"`
+   - Run `flask db upgrade`
 
-- Real-time dashboard metrics
-- Custom report generation
-- Predictive analytics
-- Export capabilities (PDF, Excel, CSV)
-- Interactive charts and graphs
+4. Port Conflicts:
+   - Check if ports 5000 (backend) and 3000 (frontend) are available
+   - Modify ports in configuration if needed
 
-## 🔄 Multi-branch Support
+### Environment Variables
 
-- Branch-specific settings
-- Inventory management per branch
-- Employee management across branches
-- Inter-branch transfers
-- Branch performance analytics
+Make sure to set these environment variables in your .env file:
+- `DATABASE_URL`: PostgreSQL connection string
+- `REDIS_URL`: Redis connection string
+- `SECRET_KEY`: Flask secret key
+- `JWT_SECRET_KEY`: JWT secret key
+- `MAIL_*`: Email configuration (if using email features)
 
-## 🤝 Contributing
+## API Documentation
 
-Please read our [Contributing Guidelines](docs/contributing.md) for details on our code of conduct and the process for submitting pull requests.
+The API documentation is available at `/api/docs` when running the application.
 
-## 📄 License
+## Security
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- All API endpoints are protected with JWT authentication
+- Rate limiting is implemented to prevent abuse
+- CORS is configured for security
+- Passwords are hashed using bcrypt
+- Environment variables are used for sensitive data
 
-## 👥 Support
+## Contributing
 
-For support, please:
-1. Check the [documentation](docs/)
-2. Open an issue
-3. Contact support@bizmanagepro.com
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-## 🙏 Acknowledgments
+## License
 
-- Material-UI for the beautiful components
-- Flask for the backend framework
-- React for the frontend framework
-- All our contributors and supporters
+This project is licensed under the MIT License - see the LICENSE file for details.
 
----
+## Support
 
-Made with ❤️ by the BIZ_MANAGE_PRO Team
+For support, email support@example.com or create an issue in the repository.

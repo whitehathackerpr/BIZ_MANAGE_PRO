@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
+import { Snackbar, Alert } from '@mui/material';
+import PropTypes from 'prop-types';
 import { useAuth } from './AuthContext';
 import { api } from '../services/api';
 
-const NotificationContext = createContext();
+const NotificationContext = createContext(null);
 
 export const useNotification = () => {
     const context = useContext(NotificationContext);
@@ -17,6 +19,11 @@ export const NotificationProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [notification, setNotification] = useState({
+        open: false,
+        message: '',
+        severity: 'info',
+    });
 
     useEffect(() => {
         if (user) {
@@ -92,6 +99,21 @@ export const NotificationProvider = ({ children }) => {
         }
     };
 
+    const showNotification = useCallback((message, severity = 'info') => {
+        setNotification({
+            open: true,
+            message,
+            severity,
+        });
+    }, []);
+
+    const hideNotification = useCallback(() => {
+        setNotification((prev) => ({
+            ...prev,
+            open: false,
+        }));
+    }, []);
+
     const value = {
         notifications,
         unreadCount,
@@ -100,12 +122,34 @@ export const NotificationProvider = ({ children }) => {
         markAllAsRead,
         deleteNotification,
         clearAllNotifications,
-        refreshNotifications: fetchNotifications
+        refreshNotifications: fetchNotifications,
+        showNotification,
+        hideNotification
     };
 
     return (
         <NotificationContext.Provider value={value}>
             {children}
+            <Snackbar
+                open={notification.open}
+                autoHideDuration={6000}
+                onClose={hideNotification}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            >
+                <Alert
+                    onClose={hideNotification}
+                    severity={notification.severity}
+                    sx={{ width: '100%' }}
+                >
+                    {notification.message}
+                </Alert>
+            </Snackbar>
         </NotificationContext.Provider>
     );
-}; 
+};
+
+NotificationProvider.propTypes = {
+    children: PropTypes.node.isRequired,
+};
+
+export default NotificationContext; 

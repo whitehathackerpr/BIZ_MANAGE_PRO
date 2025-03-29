@@ -28,11 +28,6 @@ import BranchManagement from './components/admin/BranchManagement';
 
 const queryClient = new QueryClient();
 
-const PrivateRoute = ({ children }) => {
-  const { user } = useAuth();
-  return user ? children : <Navigate to="/login" />;
-};
-
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
