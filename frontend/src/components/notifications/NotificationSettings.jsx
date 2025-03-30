@@ -1,24 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import {
     Box,
+    Paper,
+    Typography,
+    Switch,
+    FormControlLabel,
+    Divider,
+    Grid,
+    Button,
+    CircularProgress,
+    Alert,
     Card,
     CardContent,
-    Typography,
-    FormGroup,
-    FormControlLabel,
-    Switch,
-    Button,
-    Alert,
-    CircularProgress,
-    Divider
+    CardHeader,
 } from '@mui/material';
-import { api } from '../../services/api';
+import {
+    Notifications as NotificationsIcon,
+    Email as EmailIcon,
+    Phone as PhoneIcon,
+    Chat as ChatIcon,
+} from '@mui/icons-material';
+import axios from 'axios';
+import { useNotification } from '../../contexts/NotificationContext';
 
 const NotificationSettings = () => {
-    const [settings, setSettings] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [success, setSuccess] = useState(false);
+    const { showNotification } = useNotification();
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [settings, setSettings] = useState({
+        emailNotifications: {
+            enabled: true,
+            types: {
+                system: true,
+                inventory: true,
+                sales: true,
+                marketing: true,
+                security: true,
+            },
+        },
+        pushNotifications: {
+            enabled: true,
+            types: {
+                system: true,
+                inventory: true,
+                sales: true,
+                marketing: false,
+                security: true,
+            },
+        },
+        smsNotifications: {
+            enabled: false,
+            types: {
+                system: false,
+                inventory: false,
+                sales: false,
+                marketing: false,
+                security: true,
+            },
+        },
+        inAppNotifications: {
+            enabled: true,
+            types: {
+                system: true,
+                inventory: true,
+                sales: true,
+                marketing: true,
+                security: true,
+            },
+        },
+    });
 
     useEffect(() => {
         fetchSettings();
@@ -27,50 +77,98 @@ const NotificationSettings = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/api/notification-settings');
+            const response = await axios.get('/api/notifications/settings');
             setSettings(response.data);
-            setError(null);
         } catch (err) {
             setError('Failed to fetch notification settings');
-            console.error('Error fetching settings:', err);
+            showNotification('Failed to fetch notification settings', 'error');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleChange = async (setting) => {
-        try {
-            const newSettings = {
-                ...settings,
-                [setting]: !settings[setting]
+    const handleToggle = (category, type = null) => {
+        setSettings((prev) => {
+            if (type) {
+                return {
+                    ...prev,
+                    [category]: {
+                        ...prev[category],
+                        types: {
+                            ...prev[category].types,
+                            [type]: !prev[category].types[type],
+                        },
+                    },
+                };
+            }
+            return {
+                ...prev,
+                [category]: {
+                    ...prev[category],
+                    enabled: !prev[category].enabled,
+                },
             };
-            await api.put('/api/notification-settings', newSettings);
-            setSettings(newSettings);
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+        });
+    };
+
+    const handleSave = async () => {
+        try {
+            setLoading(true);
+            await axios.put('/api/notifications/settings', settings);
+            showNotification('Notification settings updated successfully', 'success');
         } catch (err) {
             setError('Failed to update notification settings');
-            console.error('Error updating settings:', err);
-            setTimeout(() => setError(null), 3000);
+            showNotification('Failed to update notification settings', 'error');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleReset = async () => {
-        try {
-            await api.post('/api/notification-settings/reset');
-            await fetchSettings();
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
-        } catch (err) {
-            setError('Failed to reset notification settings');
-            console.error('Error resetting settings:', err);
-            setTimeout(() => setError(null), 3000);
-        }
-    };
+    const renderNotificationType = (category, type) => (
+        <FormControlLabel
+            control={
+                <Switch
+                    checked={settings[category].types[type]}
+                    onChange={() => handleToggle(category, type)}
+                    disabled={!settings[category].enabled}
+                />
+            }
+            label={type.charAt(0).toUpperCase() + type.slice(1)}
+        />
+    );
+
+    const renderNotificationCard = (category, title, icon) => (
+        <Card>
+            <CardHeader
+                avatar={icon}
+                title={title}
+                action={
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings[category].enabled}
+                                onChange={() => handleToggle(category)}
+                            />
+                        }
+                        label="Enable"
+                    />
+                }
+            />
+            <CardContent>
+                <Grid container spacing={2}>
+                    {Object.keys(settings[category].types).map((type) => (
+                        <Grid item xs={12} sm={6} key={type}>
+                            {renderNotificationType(category, type)}
+                        </Grid>
+                    ))}
+                </Grid>
+            </CardContent>
+        </Card>
+    );
 
     if (loading) {
         return (
-            <Box display="flex" justifyContent="center" p={3}>
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
                 <CircularProgress />
             </Box>
         );
@@ -78,104 +176,56 @@ const NotificationSettings = () => {
 
     return (
         <Box p={3}>
-            <Card>
-                <CardContent>
-                    <Typography variant="h5" gutterBottom>
-                        Notification Settings
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary" paragraph>
-                        Manage your notification preferences for different types of updates and alerts.
-                    </Typography>
+            <Paper elevation={3} sx={{ p: 3 }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+                    <Typography variant="h5">Notification Settings</Typography>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleSave}
+                        disabled={loading}
+                    >
+                        {loading ? <CircularProgress size={24} /> : 'Save Changes'}
+                    </Button>
+                </Box>
 
-                    {error && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {error}
-                        </Alert>
-                    )}
+                {error && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {error}
+                    </Alert>
+                )}
 
-                    {success && (
-                        <Alert severity="success" sx={{ mb: 2 }}>
-                            Settings updated successfully
-                        </Alert>
-                    )}
-
-                    <FormGroup>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.email_notifications}
-                                    onChange={() => handleChange('email_notifications')}
-                                />
-                            }
-                            label="Email Notifications"
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.push_notifications}
-                                    onChange={() => handleChange('push_notifications')}
-                                />
-                            }
-                            label="Push Notifications"
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.in_app_notifications}
-                                    onChange={() => handleChange('in_app_notifications')}
-                                />
-                            }
-                            label="In-App Notifications"
-                        />
-                    </FormGroup>
-
-                    <Divider sx={{ my: 3 }} />
-
-                    <Typography variant="h6" gutterBottom>
-                        Notification Types
-                    </Typography>
-
-                    <FormGroup>
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.low_stock_alerts}
-                                    onChange={() => handleChange('low_stock_alerts')}
-                                />
-                            }
-                            label="Low Stock Alerts"
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.order_updates}
-                                    onChange={() => handleChange('order_updates')}
-                                />
-                            }
-                            label="Order Updates"
-                        />
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={settings.system_alerts}
-                                    onChange={() => handleChange('system_alerts')}
-                                />
-                            }
-                            label="System Alerts"
-                        />
-                    </FormGroup>
-
-                    <Box mt={3}>
-                        <Button
-                            variant="outlined"
-                            color="secondary"
-                            onClick={handleReset}
-                        >
-                            Reset to Default
-                        </Button>
-                    </Box>
-                </CardContent>
-            </Card>
+                <Grid container spacing={3}>
+                    <Grid item xs={12}>
+                        {renderNotificationCard(
+                            'emailNotifications',
+                            'Email Notifications',
+                            <EmailIcon />
+                        )}
+                    </Grid>
+                    <Grid item xs={12}>
+                        {renderNotificationCard(
+                            'pushNotifications',
+                            'Push Notifications',
+                            <NotificationsIcon />
+                        )}
+                    </Grid>
+                    <Grid item xs={12}>
+                        {renderNotificationCard(
+                            'smsNotifications',
+                            'SMS Notifications',
+                            <PhoneIcon />
+                        )}
+                    </Grid>
+                    <Grid item xs={12}>
+                        {renderNotificationCard(
+                            'inAppNotifications',
+                            'In-App Notifications',
+                            <ChatIcon />
+                        )}
+                    </Grid>
+                </Grid>
+            </Paper>
         </Box>
     );
 };

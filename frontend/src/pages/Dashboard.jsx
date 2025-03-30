@@ -11,6 +11,9 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
+  LinearProgress,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
@@ -18,6 +21,7 @@ import {
   Inventory as InventoryIcon,
   People as EmployeesIcon,
   Warning as WarningIcon,
+  MoreVert as MoreVertIcon,
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -28,7 +32,7 @@ import {
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  Tooltip as ChartTooltip,
   Legend,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
@@ -39,7 +43,7 @@ ChartJS.register(
   PointElement,
   LineElement,
   Title,
-  Tooltip,
+  ChartTooltip,
   Legend
 );
 
@@ -85,6 +89,41 @@ const Dashboard = () => {
     },
   });
 
+  const stats = [
+    {
+      title: 'Total Sales',
+      value: '$12,345',
+      change: '+12.5%',
+      icon: <TrendingUpIcon sx={{ fontSize: 40 }} />,
+      color: '#00F5FF',
+      progress: 75,
+    },
+    {
+      title: 'Orders',
+      value: '123',
+      change: '+8.2%',
+      icon: <SalesIcon sx={{ fontSize: 40 }} />,
+      color: '#FF2E63',
+      progress: 60,
+    },
+    {
+      title: 'Inventory Items',
+      value: '456',
+      change: '-3.1%',
+      icon: <InventoryIcon sx={{ fontSize: 40 }} />,
+      color: '#00F5FF',
+      progress: 45,
+    },
+    {
+      title: 'Employees',
+      value: '25',
+      change: '+5.0%',
+      icon: <EmployeesIcon sx={{ fontSize: 40 }} />,
+      color: '#FF2E63',
+      progress: 90,
+    },
+  ];
+
   const chartData = {
     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
@@ -112,49 +151,76 @@ const Dashboard = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+        <Typography variant="h4" className="gradient-text">
+          Dashboard
+        </Typography>
+        <Tooltip title="More options">
+          <IconButton>
+            <MoreVertIcon />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
       <Grid container spacing={3}>
-        {/* Stats Cards */}
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Sales"
-            value={`$${salesData?.total_sales?.toLocaleString() || '0'}`}
-            icon={<SalesIcon sx={{ color: '#1976d2' }} />}
-            color="#1976d2"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Low Stock Items"
-            value={inventoryData?.low_stock_count || 0}
-            icon={<WarningIcon sx={{ color: '#f44336' }} />}
-            color="#f44336"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Total Products"
-            value={inventoryData?.total_products || 0}
-            icon={<InventoryIcon sx={{ color: '#4caf50' }} />}
-            color="#4caf50"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Active Employees"
-            value={salesData?.active_employees || 0}
-            icon={<EmployeesIcon sx={{ color: '#ff9800' }} />}
-            color="#ff9800"
-          />
-        </Grid>
+        {stats.map((stat) => (
+          <Grid item xs={12} sm={6} md={3} key={stat.title}>
+            <Card className="glass">
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+                  <Box>
+                    <Typography color="text.secondary" gutterBottom>
+                      {stat.title}
+                    </Typography>
+                    <Typography variant="h4" component="div" sx={{ mb: 1 }}>
+                      {stat.value}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: stat.change.startsWith('+') ? '#00F5FF' : '#FF2E63',
+                      }}
+                    >
+                      {stat.change}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      color: stat.color,
+                      opacity: 0.8,
+                    }}
+                  >
+                    {stat.icon}
+                  </Box>
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={stat.progress}
+                    sx={{
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: stat.color,
+                      },
+                    }}
+                  />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
 
         {/* Sales Chart */}
         <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2 }}>
-            <Line options={chartOptions} data={chartData} />
+          <Paper className="glass" sx={{ p: 2 }}>
+            <Typography variant="h6" gutterBottom>
+              Sales Overview
+            </Typography>
+            <Box sx={{ height: 300 }}>
+              <Line options={chartOptions} data={chartData} />
+            </Box>
           </Paper>
         </Grid>
 

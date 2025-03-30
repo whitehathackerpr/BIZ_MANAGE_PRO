@@ -1,0 +1,13 @@
+{
+  "name": "biz-manage-pro",
+  "version": "1.0.0",
+  "description": "Business Management System",
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "install-all": "npm install && cd frontend && npm install",
+    "start": "cd frontend && npm run preview"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+} 

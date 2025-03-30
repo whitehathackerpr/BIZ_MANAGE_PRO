@@ -19,8 +19,21 @@ export default defineConfig(({ mode }) => {
         '@tanstack/react-query',
         'react-hook-form',
         '@hookform/resolvers',
-        'yup'
+        'yup',
+        '@emotion/react',
+        '@emotion/styled',
+        '@mui/material',
+        '@mui/icons-material'
       ],
+    },
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+      },
     },
   }
 })

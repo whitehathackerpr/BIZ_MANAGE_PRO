@@ -1,195 +1,79 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, CssBaseline } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { RtlProvider } from './components/RtlProvider';
+import { AuthProvider } from './contexts/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import theme from './theme';
-import MainLayout from './components/layout/MainLayout';
+import Layout from './components/Layout';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
-import Sales from './pages/Sales';
-import Employees from './pages/Employees';
-import Analytics from './pages/Analytics';
-import Notifications from './pages/Notifications';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import NotificationSettings from './components/notifications/NotificationSettings';
-import AdminNotificationPanel from './components/notifications/AdminNotificationPanel';
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
+import Dashboard from './components/admin/Dashboard';
 import UserManagement from './components/admin/UserManagement';
+import BranchManagement from './components/admin/branch/BranchManagement';
+import BranchPerformance from './components/admin/branch/BranchPerformance';
+import BranchInventory from './components/admin/branch/BranchInventory';
+import BranchUsers from './components/admin/branch/BranchUsers';
 import BusinessProfile from './components/admin/BusinessProfile';
-import BranchManagement from './components/admin/BranchManagement';
+import Settings from './components/admin/Settings';
+import NotFound from './components/NotFound';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+        },
+    },
+});
 
 const App = () => {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <AuthProvider>
-            <NotificationProvider>
-              <Router>
-                <Routes>
-                  {/* Public Routes */}
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/register" element={<Register />} />
-
-                  {/* Protected Routes */}
-                  <Route
-                    path="/"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Dashboard />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  >
-                    <Route index element={<Dashboard />} />
-                    <Route
-                      path="notifications/settings"
-                      element={<NotificationSettings />}
-                    />
-                    <Route
-                      path="admin/notifications"
-                      element={
-                        <AdminRoute>
-                          <AdminNotificationPanel />
-                        </AdminRoute>
-                      }
-                    />
-                  </Route>
-                  <Route
-                    path="/inventory"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Inventory />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/sales"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Sales />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/employees"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Employees />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/analytics"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Analytics />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/notifications"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Notifications />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Settings />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/profile"
-                    element={
-                      <PrivateRoute>
-                        <MainLayout>
-                          <Profile />
-                        </MainLayout>
-                      </PrivateRoute>
-                    }
-                  />
-
-                  {/* Admin Routes */}
-                  <Route
-                    path="/admin/users"
-                    element={
-                      <AdminRoute>
-                        <MainLayout>
-                          <UserManagement />
-                        </MainLayout>
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/business"
-                    element={
-                      <AdminRoute>
-                        <MainLayout>
-                          <BusinessProfile />
-                        </MainLayout>
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/notifications"
-                    element={
-                      <AdminRoute>
-                        <MainLayout>
-                          <AdminNotificationPanel />
-                        </MainLayout>
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/branches"
-                    element={
-                      <AdminRoute>
-                        <MainLayout>
-                          <BranchManagement />
-                        </MainLayout>
-                      </AdminRoute>
-                    }
-                  />
-
-                  {/* Catch all route */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Router>
-            </NotificationProvider>
-          </AuthProvider>
-        </LocalizationProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  );
+    return (
+        <QueryClientProvider client={queryClient}>
+            <ThemeProvider theme={theme}>
+                <RtlProvider>
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                        <AuthProvider>
+                            <NotificationProvider>
+                                <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                                    <Routes>
+                                        <Route path="/login" element={<Login />} />
+                                        <Route path="/register" element={<Register />} />
+                                        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+                                            <Route index element={<Navigate to="/dashboard" replace />} />
+                                            <Route path="dashboard" element={<Dashboard />} />
+                                            <Route path="profile" element={<BusinessProfile />} />
+                                            <Route path="settings" element={<Settings />} />
+                                            <Route path="*" element={<NotFound />} />
+                                        </Route>
+                                        <Route path="/admin" element={<AdminRoute><Layout /></AdminRoute>}>
+                                            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                                            <Route path="dashboard" element={<Dashboard />} />
+                                            <Route path="users" element={<UserManagement />} />
+                                            <Route path="branches" element={<BranchManagement />} />
+                                            <Route path="branches/:id/performance" element={<BranchPerformance />} />
+                                            <Route path="branches/:id/inventory" element={<BranchInventory />} />
+                                            <Route path="branches/:id/users" element={<BranchUsers />} />
+                                            <Route path="profile" element={<BusinessProfile />} />
+                                            <Route path="settings" element={<Settings />} />
+                                            <Route path="*" element={<NotFound />} />
+                                        </Route>
+                                    </Routes>
+                                </Router>
+                            </NotificationProvider>
+                        </AuthProvider>
+                    </LocalizationProvider>
+                </RtlProvider>
+            </ThemeProvider>
+            <ReactQueryDevtools initialIsOpen={false} />
+        </QueryClientProvider>
+    );
 };
 
 export default App;

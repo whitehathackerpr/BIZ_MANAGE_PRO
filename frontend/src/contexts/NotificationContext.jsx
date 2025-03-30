@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Snackbar, Alert } from '@mui/material';
 import PropTypes from 'prop-types';
 import { useAuth } from './AuthContext';
@@ -113,6 +113,16 @@ export const NotificationProvider = ({ children }) => {
             open: false,
         }));
     }, []);
+
+    useEffect(() => {
+        if (notification.open) {
+            const timer = setTimeout(() => {
+                hideNotification();
+            }, 6000); // Hide after 6 seconds
+
+            return () => clearTimeout(timer);
+        }
+    }, [notification.open]);
 
     const value = {
         notifications,
