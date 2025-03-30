@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
+from sqlalchemy import or_
 from werkzeug.security import generate_password_hash, check_password_hash
 from ..models import User, UserProfile, Role, Permission
 from ..extensions import db

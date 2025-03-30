@@ -1,16 +1,16 @@
-from app import db
 from datetime import datetime
+from ..extensions import db
 
 class Branch(db.Model):
     __tablename__ = 'branches'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    address = db.Column(db.String(200), nullable=False)
+    address = db.Column(db.String(255))
     phone = db.Column(db.String(20))
-    email = db.Column(db.String(100))
+    email = db.Column(db.String(120))
     manager_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    status = db.Column(db.String(20), default='active')
+    status = db.Column(db.String(20), default='active')  # active, inactive, closed
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     settings = db.Column(db.JSON, default={
@@ -41,7 +41,8 @@ class Branch(db.Model):
     })
 
     # Relationships
-    manager = db.relationship('User', foreign_keys=[manager_id], backref='managed_branch')
+    manager = db.relationship('User', foreign_keys=[manager_id], backref='managed_branches')
+    employees = db.relationship('Employee', backref='branch', lazy=True)
     users = db.relationship('User', foreign_keys='User.branch_id', backref='branch')
     inventory = db.relationship('BranchInventory', backref='branch', lazy=True)
     sales = db.relationship('Sale', backref='branch', lazy=True)

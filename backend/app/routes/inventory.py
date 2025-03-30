@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from datetime import datetime
 from ..models import Product, Category, ProductVariant, Supplier, Transaction
 from ..extensions import db

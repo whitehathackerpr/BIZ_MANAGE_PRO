@@ -1,8 +1,9 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import UserMixin
 from ..extensions import db
 
-class User(db.Model):
+class User(UserMixin, db.Model):
     """
     User model for authentication and user management.
     """
@@ -22,6 +23,7 @@ class User(db.Model):
     
     # Relationships
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'))
     profile = db.relationship('UserProfile', backref='user', uselist=False)
     notifications = db.relationship('Notification', backref='user', lazy=True)
     
@@ -49,7 +51,7 @@ class User(db.Model):
     
     def check_password(self, password):
         """
-        Check if password matches.
+        Check user password.
         
         Args:
             password (str): Password to check
@@ -58,6 +60,15 @@ class User(db.Model):
             bool: True if password matches, False otherwise
         """
         return check_password_hash(self.password_hash, password)
+    
+    def get_id(self):
+        """
+        Get user ID for Flask-Login.
+        
+        Returns:
+            str: User ID
+        """
+        return str(self.id)
     
     def has_permission(self, permission_name):
         """

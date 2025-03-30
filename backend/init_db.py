@@ -1,11 +1,14 @@
-from app import create_app, db
-from app.models import User, Role, Branch, Category
-from werkzeug.security import generate_password_hash
+from app import create_app
+from app.extensions import db
 from flask_migrate import upgrade
 
 def init_db():
     app = create_app()
     with app.app_context():
+        # Import models after app context is created
+        from app.models import User, Role, Branch, Category
+        from werkzeug.security import generate_password_hash
+        
         # Run any pending migrations
         upgrade()
         
@@ -56,9 +59,9 @@ def init_db():
             'Electronics',
             'Clothing',
             'Food',
-            'Beverages',
-            'Household',
-            'Other'
+            'Books',
+            'Sports',
+            'Home & Garden'
         ]
         
         for category_name in default_categories:
@@ -66,7 +69,7 @@ def init_db():
             if not category:
                 category = Category(name=category_name)
                 db.session.add(category)
-                
+        
         # Commit all changes
         db.session.commit()
         print("Database initialized successfully!")

@@ -1,9 +1,4 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
-from flask_mail import Mail
 from flask_socketio import SocketIO
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -13,14 +8,7 @@ from logging.handlers import RotatingFileHandler
 import os
 
 from config import Config
-
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
-mail = Mail()
-socketio = SocketIO()
-limiter = Limiter(key_func=get_remote_address)
+from app.extensions import db, migrate, jwt, cors, mail, socketio, limiter, login_manager
 
 def create_app(config_class=Config):
     app = Flask(__name__)
@@ -31,9 +19,15 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     jwt.init_app(app)
     mail.init_app(app)
-    CORS(app)
+    cors.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")
     limiter.init_app(app)
+    
+    # Configure Flask-Login
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_message_category = 'info'
 
     # Setup logging
     if not app.debug and not app.testing:
@@ -69,6 +63,13 @@ def create_app(config_class=Config):
     from app.main import bp as main_bp
     app.register_blueprint(main_bp)
 
-    return app
+    # Import models after app context is created
+    with app.app_context():
+        from app import models
+        
+        # Configure Flask-Login user loader
+        @login_manager.user_loader
+        def load_user(id):
+            return models.User.query.get(int(id))
 
-from app import models 
+    return app 

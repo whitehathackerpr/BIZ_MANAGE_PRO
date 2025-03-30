@@ -1,8 +1,9 @@
 from datetime import datetime
-from app import db
+from ..extensions import db
 
 class Notification(db.Model):
     __tablename__ = 'notifications'
+    __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -21,6 +22,7 @@ class Notification(db.Model):
 
 class NotificationSetting(db.Model):
     __tablename__ = 'notification_settings'
+    __table_args__ = {'extend_existing': True}
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
