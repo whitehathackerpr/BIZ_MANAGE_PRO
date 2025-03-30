@@ -1,198 +1,197 @@
-# Business Management System
+# 🚀 Business Management System (BIZ_MANAGE_PRO)
 
-A comprehensive business management system with features for inventory management, sales tracking, employee management, and analytics.
+A modern, full-stack business management system with a Web3-inspired design, real-time features, and advanced analytics.
 
-## Features
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Python](https://img.shields.io/badge/python-3.12-blue.svg)
+![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
 
-- User Authentication and Authorization
-- Multi-branch Support
-- Inventory Management
-- Sales Tracking
-- Employee Management
-- Customer Management
-- Supplier Management
-- Analytics and Reporting
-- Barcode Integration
-- Real-time Notifications
-- Email Notifications
-- File Upload Support
-- API Rate Limiting
-
-## Tech Stack
-
-### Backend
-- Python 3.8+
-- Flask
-- PostgreSQL
-- Redis
-- SQLAlchemy
-- Flask-JWT-Extended
-- Flask-SocketIO
-- Flask-Mail
-- Flask-Limiter
+## 🌟 Features
 
 ### Frontend
-- React
-- Material-UI
-- Redux
-- Chart.js
+- 🎨 Modern Web3-inspired UI with glassmorphism effects
+- 📱 Fully responsive design
+- 🔄 Real-time updates with WebSocket
+- 📊 Interactive dashboards and analytics
+- 🔔 Real-time notifications
+- 🌙 Dark mode support
+- 🌐 RTL (Right-to-Left) language support
+
+### Backend
+- 🔒 JWT-based authentication
+- 📦 PostgreSQL database with SQLAlchemy ORM
+- 🔄 Redis for caching and real-time features
+- 📧 Email notifications
+- 📊 Advanced analytics and reporting
+- 🔍 Full-text search
+- 📱 RESTful API with versioning
+- 🔒 Rate limiting and security features
+
+## 🛠️ Tech Stack
+
+### Frontend
+- React 18
+- Material-UI v5
+- React Query
 - Socket.IO Client
+- Chart.js
+- React Router v6
+- Axios
+- date-fns
 
-## Prerequisites
+### Backend
+- Python 3.12
+- Flask
+- SQLAlchemy
+- PostgreSQL
+- Redis
+- JWT
+- WebSocket
+- Pandas & NumPy
+- scikit-learn
 
-- Python 3.8 or higher
-- Node.js 14 or higher
-- PostgreSQL 12 or higher
-- Redis 6 or higher
+## 🚀 Getting Started
 
-## Installation
+### Prerequisites
+- Python 3.12+
+- Node.js 18+
+- PostgreSQL 14+
+- Redis 6+
+- Git
+
+### Installation
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/biz-manage-pro.git
-cd biz-manage-pro
+git clone https://github.com/yourusername/BIZ_MANAGE_PRO.git
+cd BIZ_MANAGE_PRO
 ```
 
 2. Set up the backend:
 ```bash
-cd backend
+# Create and activate virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+cd backend
 pip install -r requirements.txt
+
+# Set up environment variables
 cp .env.example .env
 # Edit .env with your configuration
-```
 
-3. Set up the database:
-```bash
-# Create the database
-createdb biz_manage
-
-# Initialize migrations
-flask db init
-
-# Create initial migration
-flask db migrate -m "Initial migration"
-
-# Apply migrations
-flask db upgrade
-
-# Initialize database with default data
+# Initialize database
 python init_db.py
+
+# Run migrations
+flask db upgrade
 ```
 
-4. Set up the frontend:
+3. Set up the frontend:
 ```bash
-cd ../frontend
+# Install dependencies
+cd frontend
 npm install
+
+# Set up environment variables
 cp .env.example .env
 # Edit .env with your configuration
 ```
 
-## Running the Application
+### Running the Application
 
-1. Start Redis:
-```bash
-redis-server
-```
-
-2. Start the backend (choose one method):
-
-Method 1 - Using Flask CLI:
+1. Start the backend server:
 ```bash
 cd backend
-flask run
+python run.py
 ```
 
-Method 2 - Using development server:
-```bash
-cd backend
-python dev.py
-```
-
-3. Start the frontend:
+2. Start the frontend development server:
 ```bash
 cd frontend
-npm start
+npm run dev
 ```
 
 The application will be available at:
-- Frontend: http://localhost:3000
+- Frontend: http://localhost:5173
 - Backend API: http://localhost:5000
+- API Documentation: http://localhost:5000/api/docs
 
-## Development
+## 📚 Documentation
 
-### Backend Development
-```bash
-cd backend
-flask shell  # For interactive Python shell
-flask db migrate -m "migration message"  # For database migrations
-flask db upgrade  # To apply migrations
-```
+### API Documentation
+- [Authentication API](docs/api/auth.md)
+- [User Management API](docs/api/users.md)
+- [Branch Management API](docs/api/branches.md)
+- [Inventory Management API](docs/api/inventory.md)
+- [Analytics API](docs/api/analytics.md)
 
-### Frontend Development
-```bash
-cd frontend
-npm run build  # For production build
-npm test  # For running tests
-```
+### Database Schema
+- [User Model](docs/models/user.md)
+- [Branch Model](docs/models/branch.md)
+- [Product Model](docs/models/product.md)
+- [Order Model](docs/models/order.md)
+- [Customer Model](docs/models/customer.md)
+- [Employee Model](docs/models/employee.md)
+- [Inventory Model](docs/models/inventory.md)
+- [Notification Model](docs/models/notification.md)
 
-## Troubleshooting
+### Development Guide
+- [Setup Guide](docs/development/setup.md)
+- [Code Style Guide](docs/development/code-style.md)
+- [Testing Guide](docs/development/testing.md)
+- [Deployment Guide](docs/development/deployment.md)
 
-### Common Issues
+## 🔒 Security
 
-1. Database Connection Issues:
-   - Ensure PostgreSQL is running
-   - Check database credentials in .env file
-   - Verify database exists: `createdb biz_manage`
+- JWT-based authentication
+- Role-based access control (RBAC)
+- Rate limiting
+- CORS protection
+- Input validation
+- SQL injection prevention
+- XSS protection
+- CSRF protection
 
-2. Redis Connection Issues:
-   - Ensure Redis server is running
-   - Check Redis URL in .env file
+## 📊 Analytics Features
 
-3. Migration Issues:
-   - Delete migrations folder and database
-   - Run `flask db init` again
-   - Run `flask db migrate -m "Initial migration"`
-   - Run `flask db upgrade`
+- Real-time sales analytics
+- Inventory tracking
+- Customer insights
+- Employee performance metrics
+- Branch performance comparison
+- Predictive analytics
+- Custom report generation
 
-4. Port Conflicts:
-   - Check if ports 5000 (backend) and 3000 (frontend) are available
-   - Modify ports in configuration if needed
-
-### Environment Variables
-
-Make sure to set these environment variables in your .env file:
-- `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string
-- `SECRET_KEY`: Flask secret key
-- `JWT_SECRET_KEY`: JWT secret key
-- `MAIL_*`: Email configuration (if using email features)
-
-## API Documentation
-
-The API documentation is available at `/api/docs` when running the application.
-
-## Security
-
-- All API endpoints are protected with JWT authentication
-- Rate limiting is implemented to prevent abuse
-- CORS is configured for security
-- Passwords are hashed using bcrypt
-- Environment variables are used for sensitive data
-
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
-## License
+## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## 👥 Authors
 
-For support, email support@example.com or create an issue in the repository.
+- Your Name - Initial work - [YourGitHub](https://github.com/yourusername)
+
+## 🙏 Acknowledgments
+
+- Material-UI team for the amazing UI components
+- Flask team for the excellent web framework
+- React team for the powerful frontend library
+- All contributors who have helped shape this project
+
+## 📞 Support
+
+For support, email support@example.com or join our Slack channel.
+
+---
+
+Made with ❤️ by [Your Name](https://github.com/yourusername)
