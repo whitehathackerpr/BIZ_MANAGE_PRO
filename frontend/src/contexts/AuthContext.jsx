@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import PropTypes from 'prop-types';
+import { authApi } from '../api/auth';
 
 const AuthContext = createContext(null);
 
@@ -23,16 +23,13 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const response = await axios.get('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setUser(response.data);
+      const currentUser = await authApi.getCurrentUser();
+      if (currentUser) {
+        setUser(currentUser);
       }
     } catch (err) {
       console.error('Auth check failed:', err);
-      localStorage.removeItem('token');
+      authApi.logout();
     } finally {
       setLoading(false);
     }
@@ -41,11 +38,10 @@ export const AuthProvider = ({ children }) => {
   const login = async (credentials) => {
     try {
       setError(null);
-      const response = await axios.post('/api/auth/login', credentials);
-      const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      setUser(user);
-      return user;
+      const response = await authApi.login(credentials);
+      const currentUser = await authApi.getCurrentUser();
+      setUser(currentUser);
+      return currentUser;
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
       throw err;
@@ -55,11 +51,15 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       setError(null);
-      const response = await axios.post('/api/auth/register', userData);
-      const { token, user } = response.data;
-      localStorage.setItem('token', token);
-      setUser(user);
-      return user;
+      await authApi.register(userData);
+      // After successful registration, login the user
+      const loginResponse = await authApi.login({
+        email: userData.email,
+        password: userData.password
+      });
+      const currentUser = await authApi.getCurrentUser();
+      setUser(currentUser);
+      return currentUser;
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
       throw err;
@@ -67,19 +67,16 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    authApi.logout();
     setUser(null);
   };
 
   const updateProfile = async (profileData) => {
     try {
       setError(null);
-      const token = localStorage.getItem('token');
-      const response = await axios.put('/api/auth/profile', profileData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setUser(response.data);
-      return response.data;
+      const response = await authApi.updateProfile(profileData);
+      setUser(response);
+      return response;
     } catch (err) {
       setError(err.response?.data?.message || 'Profile update failed');
       throw err;

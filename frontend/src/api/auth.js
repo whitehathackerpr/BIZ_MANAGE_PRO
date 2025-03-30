@@ -10,37 +10,58 @@ const mockUser = {
 
 // Mock auth API
 export const authApi = {
-  getCurrentUser: () => {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+  getCurrentUser: async () => {
+    try {
+      const response = await api.get('/api/v1/users/me');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+      return null;
+    }
   },
 
   login: async (credentials) => {
-    // In a real app, this would make an API call
-    // For now, we'll just simulate a successful login
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        localStorage.setItem('user', JSON.stringify(mockUser));
-        resolve({ user: mockUser });
-      }, 1000);
-    });
+    try {
+      const response = await api.post('/api/v1/auth/login', credentials);
+      const { access_token } = response.data;
+      localStorage.setItem('token', access_token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      return response.data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   },
 
   register: async (userData) => {
-    // In a real app, this would make an API call
-    // For now, we'll just simulate a successful registration
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ success: true });
-      }, 1000);
-    });
+    try {
+      const response = await api.post('/api/v1/auth/register', userData);
+      return response.data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
   },
 
   logout: () => {
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    delete api.defaults.headers.common['Authorization'];
   },
 
   isAuthenticated: () => {
     return !!localStorage.getItem('token');
   },
+
+  refreshToken: async () => {
+    try {
+      const response = await api.post('/api/v1/auth/refresh');
+      const { access_token } = response.data;
+      localStorage.setItem('token', access_token);
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      return response.data;
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      throw error;
+    }
+  }
 }; 

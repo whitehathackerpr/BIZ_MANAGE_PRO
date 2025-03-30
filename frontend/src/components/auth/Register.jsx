@@ -56,7 +56,15 @@ const Register = () => {
 
         try {
             setLoading(true);
-            await register(formData);
+            // Transform form data to match backend expectations
+            const userData = {
+                username: formData.email.split('@')[0], // Use email prefix as username
+                email: formData.email,
+                password: formData.password,
+                first_name: formData.firstName,
+                last_name: formData.lastName
+            };
+            await register(userData);
             showNotification('Registration successful', 'success');
             navigate('/dashboard');
         } catch (error) {
