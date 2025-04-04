@@ -83,9 +83,9 @@ const FinancialAnalysis: React.FC = () => {
 
   const fetchBranches = async (): Promise<void> => {
     try {
-      const response = await apiClient.get<{ data: Branch[] }>('/branches');
-      setBranches(response.data.data);
-      const firstBranch = response.data.data?.[0];
+      const response = await apiClient.get<Branch[]>('/branches');
+      setBranches(response);
+      const firstBranch = response?.[0];
       if (firstBranch && firstBranch.id) {
         setSelectedBranch(firstBranch.id);
       }
@@ -97,10 +97,10 @@ const FinancialAnalysis: React.FC = () => {
   const fetchReports = async (): Promise<void> => {
     try {
       setLoading(true);
-      const response = await apiClient.get<{ items: FinancialReport[] }>(`/analytics/financial/reports`, {
+      const response = await apiClient.get<FinancialReport[]>(`/analytics/financial/reports`, {
         params: { branch_id: selectedBranch }
       });
-      setReports(response.items);
+      setReports(response);
     } catch (error) {
       console.error('Error fetching reports:', error);
     } finally {
