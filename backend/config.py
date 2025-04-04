@@ -5,7 +5,7 @@ class Config:
     # Basic Flask config
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://postgres:postgres@localhost:5432/biz_manage'
+        'postgresql://postgres:752002@localhost:5432/biz_manage'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
     # JWT config
