@@ -1,23 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+  @apply border-0;
+  @apply border-solid;
+  @apply box-border;
+  @apply p-0;
+  @apply m-0;
 }
 
 body {
-  font-family: 'Inter', sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #0A0B1E 0%, #131428 100%);
-  color: #FFFFFF;
-  min-height: 100vh;
+  @apply bg-background text-foreground;
+  @apply min-h-screen;
 }
 
 #root {
-  min-height: 100vh;
+  @apply min-h-screen;
+  @apply flex;
+  @apply flex-col;
 }
 
-/* Web3-specific animations */
 @keyframes gradient {
   0% {
     background-position: 0% 50%;
@@ -31,66 +81,52 @@ body {
 }
 
 .gradient-text {
-  background: linear-gradient(45deg, #00F5FF, #FF2E63, #00F5FF);
+  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-primary-light;
+  @apply animate-gradient;
   background-size: 200% 200%;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: gradient 5s ease infinite;
 }
 
-/* Glassmorphism effects */
 .glass {
-  background: rgba(19, 20, 40, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  @apply bg-white/10 backdrop-blur-lg;
+  @apply border border-white/20;
+  @apply rounded-lg;
+  @apply shadow-lg;
 }
 
-/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  @apply w-2;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  @apply bg-primary/20 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  @apply bg-primary/30;
 }
 
-/* Selection color */
 ::selection {
-  background: rgba(0, 245, 255, 0.2);
-  color: #FFFFFF;
+  @apply bg-primary/20;
+  @apply text-primary;
 }
 
-/* Focus styles */
 :focus {
-  outline: 2px solid #00F5FF;
-  outline-offset: 2px;
+  @apply outline-none ring-2 ring-primary/50;
 }
 
-/* Loading animation */
 @keyframes pulse {
-  0% {
+  0%, 100% {
     opacity: 1;
   }
   50% {
     opacity: 0.5;
   }
-  100% {
-    opacity: 1;
-  }
 }
 
 .loading {
-  animation: pulse 1.5s ease-in-out infinite;
+  @apply animate-pulse;
 }

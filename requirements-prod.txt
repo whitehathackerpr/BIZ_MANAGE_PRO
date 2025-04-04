@@ -1,6 +1,0 @@
--r requirements.txt
-
-# Additional production packages
-gunicorn==21.2.0
-supervisor==4.2.5
-newrelic==9.3.0 

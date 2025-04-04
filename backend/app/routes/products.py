@@ -1,26 +1,87 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime
 from sqlalchemy import or_
-from ..models import Product, Category, ProductImage, ProductVariant
-from ..extensions import db
+
+from ..models import Product, Category, ProductImage, ProductVariant, Barcode, User
+from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.images import save_image, delete_image
 from ..utils.validation import validate_product_data
 
-products_bp = Blueprint('products', __name__)
+router = APIRouter()
 
-@products_bp.route('/api/products', methods=['GET'])
-@jwt_required()
-def get_products():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    category_id = request.args.get('category_id', type=int)
-    search = request.args.get('search', '')
-    min_price = request.args.get('min_price', type=float)
-    max_price = request.args.get('max_price', type=float)
-    in_stock = request.args.get('in_stock', type=bool)
-    
-    query = Product.query
+# Pydantic models
+class ProductBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    stock: int = 0
+    category_id: Optional[int] = None
+    sku: str
+    barcode: Optional[str] = None
+    weight: Optional[float] = None
+    dimensions: Optional[str] = None
+    min_stock_level: int = 10
+    supplier_id: Optional[int] = None
+
+class ProductCreate(ProductBase):
+    pass
+
+class ProductResponse(ProductBase):
+    id: int
+    created_at: datetime
+    images: List[ProductImage]
+    variants: List[ProductVariant]
+
+    class Config:
+        from_attributes = True
+
+class ProductVariantBase(BaseModel):
+    name: str
+    sku: str
+    price_adjustment: float = 0
+    stock: int = 0
+    attributes: Optional[dict] = None
+
+class ProductVariantResponse(ProductVariantBase):
+    id: int
+    product_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class BarcodeBase(BaseModel):
+    code: str
+    type: str
+    is_primary: bool = False
+
+class BarcodeResponse(BarcodeBase):
+    id: int
+    product_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Routes
+@router.get("/products", response_model=List[ProductResponse])
+async def get_products(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    category_id: Optional[int] = None,
+    search: str = Query(""),
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    in_stock: Optional[bool] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    query = db.query(Product)
     
     if category_id:
         query = query.filter_by(category_id=category_id)
@@ -39,266 +100,357 @@ def get_products():
     if in_stock:
         query = query.filter(Product.stock > 0)
     
-    products = query.order_by(Product.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    products = query.order_by(Product.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
     
-    return jsonify({
-        'products': [product.to_dict() for product in products.items],
-        'total': products.total,
-        'pages': products.pages,
-        'current_page': products.page
-    })
+    return products
 
-@products_bp.route('/api/products', methods=['POST'])
-@jwt_required()
-@admin_required
-def create_product():
-    data = request.get_json()
-    
+@router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+async def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
     # Validate product data
-    errors = validate_product_data(data)
+    errors = validate_product_data(product.dict())
     if errors:
-        return jsonify({'errors': errors}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=errors
+        )
     
     # Check for duplicate SKU
-    if Product.query.filter_by(sku=data['sku']).first():
-        return jsonify({
-            'error': 'SKU already exists'
-        }), 400
+    if db.query(Product).filter_by(sku=product.sku).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SKU already exists"
+        )
     
-    product = Product(
-        name=data['name'],
-        description=data.get('description'),
-        price=data['price'],
-        stock=data.get('stock', 0),
-        category_id=data.get('category_id'),
-        sku=data['sku'],
-        barcode=data.get('barcode'),
-        weight=data.get('weight'),
-        dimensions=data.get('dimensions'),
-        min_stock_level=data.get('min_stock_level', 10),
-        supplier_id=data.get('supplier_id')
+    db_product = Product(
+        name=product.name,
+        description=product.description,
+        price=product.price,
+        stock=product.stock,
+        category_id=product.category_id,
+        sku=product.sku,
+        barcode=product.barcode,
+        weight=product.weight,
+        dimensions=product.dimensions,
+        min_stock_level=product.min_stock_level,
+        supplier_id=product.supplier_id
     )
     
-    db.session.add(product)
-    db.session.commit()
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
     
-    return jsonify({
-        'message': 'Product created successfully',
-        'product': product.to_dict()
-    }), 201
+    return db_product
 
-@products_bp.route('/api/products/<int:id>', methods=['GET'])
-@jwt_required()
-def get_product(id):
-    product = Product.query.get_or_404(id)
-    return jsonify(product.to_dict())
+@router.get("/products/{product_id}", response_model=ProductResponse)
+async def get_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
+    return product
 
-@products_bp.route('/api/products/<int:id>', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_product(id):
-    product = Product.query.get_or_404(id)
-    data = request.get_json()
+@router.put("/products/{product_id}", response_model=ProductResponse)
+async def update_product(
+    product_id: int,
+    product_update: ProductBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    db_product = db.query(Product).get(product_id)
+    if not db_product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
     # Validate product data
-    errors = validate_product_data(data, partial=True)
+    errors = validate_product_data(product_update.dict(), partial=True)
     if errors:
-        return jsonify({'errors': errors}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=errors
+        )
     
     # Check for duplicate SKU if SKU is being updated
-    if 'sku' in data and data['sku'] != product.sku:
-        if Product.query.filter_by(sku=data['sku']).first():
-            return jsonify({
-                'error': 'SKU already exists'
-            }), 400
-        product.sku = data['sku']
+    if product_update.sku != db_product.sku:
+        if db.query(Product).filter_by(sku=product_update.sku).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SKU already exists"
+            )
+        db_product.sku = product_update.sku
     
     # Update other fields
-    if 'name' in data:
-        product.name = data['name']
-    if 'description' in data:
-        product.description = data['description']
-    if 'price' in data:
-        product.price = data['price']
-    if 'stock' in data:
-        product.stock = data['stock']
-    if 'category_id' in data:
-        product.category_id = data['category_id']
-    if 'barcode' in data:
-        product.barcode = data['barcode']
-    if 'weight' in data:
-        product.weight = data['weight']
-    if 'dimensions' in data:
-        product.dimensions = data['dimensions']
-    if 'min_stock_level' in data:
-        product.min_stock_level = data['min_stock_level']
-    if 'supplier_id' in data:
-        product.supplier_id = data['supplier_id']
+    db_product.name = product_update.name
+    db_product.description = product_update.description
+    db_product.price = product_update.price
+    db_product.stock = product_update.stock
+    db_product.category_id = product_update.category_id
+    db_product.barcode = product_update.barcode
+    db_product.weight = product_update.weight
+    db_product.dimensions = product_update.dimensions
+    db_product.min_stock_level = product_update.min_stock_level
+    db_product.supplier_id = product_update.supplier_id
     
-    db.session.commit()
+    db.commit()
+    db.refresh(db_product)
     
-    return jsonify({
-        'message': 'Product updated successfully',
-        'product': product.to_dict()
-    })
+    return db_product
 
-@products_bp.route('/api/products/<int:id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
-def delete_product(id):
-    product = Product.query.get_or_404(id)
+@router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
     # Delete associated images
     for image in product.images:
         delete_image(image.filename)
-        db.session.delete(image)
+        db.delete(image)
     
-    db.session.delete(product)
-    db.session.commit()
+    db.delete(product)
+    db.commit()
     
-    return jsonify({
-        'message': 'Product deleted successfully'
-    })
+    return {"message": "Product deleted successfully"}
 
-@products_bp.route('/api/products/<int:id>/images', methods=['POST'])
-@jwt_required()
-@admin_required
-def add_product_image(id):
-    product = Product.query.get_or_404(id)
+@router.post("/products/{product_id}/images")
+async def add_product_image(
+    product_id: int,
+    image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
-    if 'image' not in request.files:
-        return jsonify({
-            'error': 'No image file provided'
-        }), 400
+    if not image:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No image file provided"
+        )
     
-    file = request.files['image']
-    if file.filename == '':
-        return jsonify({
-            'error': 'No selected file'
-        }), 400
-    
-    filename = save_image(file)
-    image = ProductImage(
-        product=product,
+    filename = save_image(image)
+    db_image = ProductImage(
+        product_id=product_id,
         filename=filename,
-        url=f"{current_app.config['UPLOAD_URL']}/{filename}",
-        is_primary=not product.images.first()
+        url=f"/uploads/{filename}",
+        is_primary=not product.images
     )
     
-    db.session.add(image)
-    db.session.commit()
+    db.add(db_image)
+    db.commit()
+    db.refresh(db_image)
     
-    return jsonify({
-        'message': 'Image added successfully',
-        'image': image.to_dict()
-    })
+    return {
+        "message": "Image added successfully",
+        "image": db_image
+    }
 
-@products_bp.route('/api/products/<int:id>/images/<int:image_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
-def delete_product_image(id, image_id):
-    product = Product.query.get_or_404(id)
-    image = ProductImage.query.get_or_404(image_id)
+@router.delete("/products/{product_id}/images/{image_id}")
+async def delete_product_image(
+    product_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
-    if image.product_id != product.id:
-        return jsonify({
-            'error': 'Image does not belong to this product'
-        }), 400
+    image = db.query(ProductImage).get(image_id)
+    if not image or image.product_id != product_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Image not found"
+        )
     
     delete_image(image.filename)
-    db.session.delete(image)
-    db.session.commit()
+    db.delete(image)
+    db.commit()
     
-    return jsonify({
-        'message': 'Image deleted successfully'
-    })
+    return {"message": "Image deleted successfully"}
 
-@products_bp.route('/api/products/<int:id>/variants', methods=['POST'])
-@jwt_required()
-@admin_required
-def add_product_variant(id):
-    product = Product.query.get_or_404(id)
-    data = request.get_json()
+@router.post("/products/{product_id}/variants", response_model=ProductVariantResponse)
+async def add_product_variant(
+    product_id: int,
+    variant: ProductVariantBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
     # Check for duplicate SKU
-    if ProductVariant.query.filter_by(sku=data['sku']).first():
-        return jsonify({
-            'error': 'SKU already exists'
-        }), 400
+    if db.query(ProductVariant).filter_by(sku=variant.sku).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="SKU already exists"
+        )
     
-    variant = ProductVariant(
-        product=product,
-        name=data['name'],
-        sku=data['sku'],
-        price_adjustment=data.get('price_adjustment', 0),
-        stock=data.get('stock', 0),
-        attributes=data.get('attributes')
+    db_variant = ProductVariant(
+        product_id=product_id,
+        name=variant.name,
+        sku=variant.sku,
+        price_adjustment=variant.price_adjustment,
+        stock=variant.stock,
+        attributes=variant.attributes
     )
     
-    db.session.add(variant)
-    db.session.commit()
+    db.add(db_variant)
+    db.commit()
+    db.refresh(db_variant)
     
-    return jsonify({
-        'message': 'Variant added successfully',
-        'variant': variant.to_dict()
-    })
+    return db_variant
 
-@products_bp.route('/api/products/<int:id>/variants/<int:variant_id>', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_product_variant(id, variant_id):
-    product = Product.query.get_or_404(id)
-    variant = ProductVariant.query.get_or_404(variant_id)
-    
-    if variant.product_id != product.id:
-        return jsonify({
-            'error': 'Variant does not belong to this product'
-        }), 400
-    
-    data = request.get_json()
+@router.put("/products/{product_id}/variants/{variant_id}", response_model=ProductVariantResponse)
+async def update_product_variant(
+    product_id: int,
+    variant_id: int,
+    variant_update: ProductVariantBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    variant = db.query(ProductVariant).get(variant_id)
+    if not variant or variant.product_id != product_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Variant not found"
+        )
     
     # Check for duplicate SKU if SKU is being updated
-    if 'sku' in data and data['sku'] != variant.sku:
-        if ProductVariant.query.filter_by(sku=data['sku']).first():
-            return jsonify({
-                'error': 'SKU already exists'
-            }), 400
-        variant.sku = data['sku']
+    if variant_update.sku != variant.sku:
+        if db.query(ProductVariant).filter_by(sku=variant_update.sku).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="SKU already exists"
+            )
+        variant.sku = variant_update.sku
     
     # Update other fields
-    if 'name' in data:
-        variant.name = data['name']
-    if 'price_adjustment' in data:
-        variant.price_adjustment = data['price_adjustment']
-    if 'stock' in data:
-        variant.stock = data['stock']
-    if 'attributes' in data:
-        variant.attributes = data['attributes']
+    variant.name = variant_update.name
+    variant.price_adjustment = variant_update.price_adjustment
+    variant.stock = variant_update.stock
+    variant.attributes = variant_update.attributes
     
-    db.session.commit()
+    db.commit()
+    db.refresh(variant)
     
-    return jsonify({
-        'message': 'Variant updated successfully',
-        'variant': variant.to_dict()
-    })
+    return variant
 
-@products_bp.route('/api/products/<int:id>/variants/<int:variant_id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
-def delete_product_variant(id, variant_id):
-    product = Product.query.get_or_404(id)
-    variant = ProductVariant.query.get_or_404(variant_id)
+@router.delete("/products/{product_id}/variants/{variant_id}")
+async def delete_product_variant(
+    product_id: int,
+    variant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    variant = db.query(ProductVariant).get(variant_id)
+    if not variant or variant.product_id != product_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Variant not found"
+        )
     
-    if variant.product_id != product.id:
-        return jsonify({
-            'error': 'Variant does not belong to this product'
-        }), 400
+    db.delete(variant)
+    db.commit()
     
-    db.session.delete(variant)
-    db.session.commit()
+    return {"message": "Variant deleted successfully"}
+
+@router.post("/scan-barcode")
+async def scan_barcode(
+    barcode: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    product = db.query(Product).filter_by(barcode=barcode).first()
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
     
-    return jsonify({
-        'message': 'Variant deleted successfully'
-    }) 
+    return product
+
+@router.post("/products/{product_id}/barcodes", response_model=BarcodeResponse)
+async def add_barcode(
+    product_id: int,
+    barcode: BarcodeBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    product = db.query(Product).get(product_id)
+    if not product:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found"
+        )
+    
+    # Check for duplicate barcode
+    if db.query(Barcode).filter_by(code=barcode.code).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Barcode already exists"
+        )
+    
+    db_barcode = Barcode(
+        product_id=product_id,
+        code=barcode.code,
+        type=barcode.type,
+        is_primary=barcode.is_primary
+    )
+    
+    db.add(db_barcode)
+    db.commit()
+    db.refresh(db_barcode)
+    
+    return db_barcode
+
+@router.delete("/products/{product_id}/barcodes/{barcode_id}")
+async def delete_barcode(
+    product_id: int,
+    barcode_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    barcode = db.query(Barcode).get(barcode_id)
+    if not barcode or barcode.product_id != product_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Barcode not found"
+        )
+    
+    db.delete(barcode)
+    db.commit()
+    
+    return {"message": "Barcode deleted successfully"} 

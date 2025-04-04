@@ -1,22 +1,24 @@
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, ForeignKey, Numeric, JSON, DateTime
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Category(db.Model):
+class Category(Base):
     __tablename__ = 'categories'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(64), unique=True, nullable=False)
-    slug = db.Column(db.String(64), unique=True, nullable=False)
-    description = db.Column(db.Text)
-    parent_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(64), unique=True, nullable=False)
+    slug = Column(String(64), unique=True, nullable=False)
+    description = Column(Text)
+    parent_id = Column(Integer, ForeignKey('categories.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    products = db.relationship('Product', backref='category', lazy='dynamic')
-    subcategories = db.relationship(
+    products = relationship('Product', backref='category', lazy='dynamic')
+    subcategories = relationship(
         'Category',
-        backref=db.backref('parent', remote_side=[id]),
+        backref=backref('parent', remote_side=[id]),
         lazy='dynamic'
     )
 
@@ -33,31 +35,31 @@ class Category(db.Model):
     def __repr__(self):
         return f'<Category {self.name}>'
 
-class Product(db.Model):
+class Product(Base):
     __tablename__ = 'products'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    price = db.Column(db.Float, nullable=False)
-    stock = db.Column(db.Integer, default=0)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id'))
-    sku = db.Column(db.String(32), unique=True)
-    barcode = db.Column(db.String(32), unique=True)
-    weight = db.Column(db.Float)
-    dimensions = db.Column(db.String(50))
-    image_url = db.Column(db.String(200))
-    is_active = db.Column(db.Boolean, default=True)
-    min_stock_level = db.Column(db.Integer, default=10)
-    supplier_id = db.Column(db.Integer, db.ForeignKey('suppliers.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    price = Column(Float, nullable=False)
+    stock = Column(Integer, default=0)
+    category_id = Column(Integer, ForeignKey('categories.id'))
+    sku = Column(String(32), unique=True)
+    barcode = Column(String(32), unique=True)
+    weight = Column(Float)
+    dimensions = Column(String(50))
+    image_url = Column(String(200))
+    is_active = Column(Boolean, default=True)
+    min_stock_level = Column(Integer, default=10)
+    supplier_id = Column(Integer, ForeignKey('suppliers.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    order_items = db.relationship('OrderItem', backref='product', lazy='dynamic')
-    sale_items = db.relationship('SaleItem', backref='product', lazy='dynamic')
-    images = db.relationship('ProductImage', backref='product', lazy='dynamic', cascade='all, delete-orphan')
-    variants = db.relationship('ProductVariant', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    order_items = relationship('OrderItem', backref='product', lazy='dynamic')
+    sale_items = relationship('SaleItem', backref='product', lazy='dynamic')
+    images = relationship('ProductImage', backref='product', lazy='dynamic', cascade='all, delete-orphan')
+    variants = relationship('ProductVariant', backref='product', lazy='dynamic', cascade='all, delete-orphan')
     
     @hybrid_property
     def formatted_price(self):
@@ -95,15 +97,15 @@ class Product(db.Model):
     def __repr__(self):
         return f'<Product {self.name}>'
 
-class ProductImage(db.Model):
+class ProductImage(Base):
     __tablename__ = 'product_images'
     
-    id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    filename = db.Column(db.String(256), nullable=False)
-    url = db.Column(db.String(512), nullable=False)
-    is_primary = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    filename = Column(String(256), nullable=False)
+    url = Column(String(512), nullable=False)
+    is_primary = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
@@ -115,16 +117,16 @@ class ProductImage(db.Model):
             'created_at': self.created_at.isoformat()
         }
 
-class ProductVariant(db.Model):
+class ProductVariant(Base):
     __tablename__ = 'product_variants'
     
-    id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    name = db.Column(db.String(128), nullable=False)
-    sku = db.Column(db.String(32), unique=True, nullable=False)
-    price_adjustment = db.Column(db.Numeric(10, 2), default=0)
-    stock = db.Column(db.Integer, default=0)
-    attributes = db.Column(db.JSON)
+    id = Column(Integer, primary_key=True)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    name = Column(String(128), nullable=False)
+    sku = Column(String(32), unique=True, nullable=False)
+    price_adjustment = Column(Numeric(10, 2), default=0)
+    stock = Column(Integer, default=0)
+    attributes = Column(JSON)
     
     def to_dict(self):
         return {

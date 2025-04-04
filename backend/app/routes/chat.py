@@ -1,309 +1,397 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
 from datetime import datetime
+
 from ..models import Chat, ChatMessage, ChatParticipant, User
-from ..extensions import db
+from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.notifications import create_notification
 
-chat_bp = Blueprint('chat', __name__)
+router = APIRouter()
 
-@chat_bp.route('/api/chats', methods=['GET'])
-@jwt_required()
-def get_chats():
-    current_user_id = get_jwt_identity()
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    
+# Pydantic models
+class ChatBase(BaseModel):
+    name: str
+    type: str = "private"
+    participants: List[int]
+
+class ChatCreate(ChatBase):
+    pass
+
+class ChatResponse(ChatBase):
+    id: int
+    created_by: int
+    created_at: datetime
+    updated_at: datetime
+    messages: List[ChatMessage]
+    participants: List[ChatParticipant]
+
+    class Config:
+        from_attributes = True
+
+class ChatMessageBase(BaseModel):
+    content: str
+    chat_id: int
+
+class ChatMessageResponse(ChatMessageBase):
+    id: int
+    sender_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ChatParticipantBase(BaseModel):
+    user_id: int
+    role: str = "member"
+
+class ChatParticipantResponse(ChatParticipantBase):
+    id: int
+    chat_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# Routes
+@router.get("/chats", response_model=dict)
+async def get_chats(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Get chats where user is a participant
-    chats = Chat.query.join(
+    chats = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        ChatParticipant.user_id == current_user_id
+        ChatParticipant.user_id == current_user.id
     ).order_by(
         Chat.updated_at.desc()
-    ).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    ).offset((page - 1) * per_page).limit(per_page).all()
     
-    return jsonify({
-        'chats': [chat.to_dict() for chat in chats.items],
-        'total': chats.total,
-        'pages': chats.pages,
-        'current_page': chats.page
-    })
+    total = db.query(Chat).join(
+        ChatParticipant
+    ).filter(
+        ChatParticipant.user_id == current_user.id
+    ).count()
+    
+    return {
+        "chats": chats,
+        "total": total,
+        "pages": (total + per_page - 1) // per_page,
+        "current_page": page
+    }
 
-@chat_bp.route('/api/chats', methods=['POST'])
-@jwt_required()
-def create_chat():
-    current_user_id = get_jwt_identity()
-    data = request.get_json()
-    
+@router.post("/chats", response_model=ChatResponse, status_code=status.HTTP_201_CREATED)
+async def create_chat(
+    chat: ChatCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Validate required fields
-    if not data.get('participants'):
-        return jsonify({
-            'error': 'At least one participant is required'
-        }), 400
+    if not chat.participants:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one participant is required"
+        )
     
     # Create chat
-    chat = Chat(
-        name=data.get('name', 'New Chat'),
-        type=data.get('type', 'private'),
-        created_by=current_user_id
+    db_chat = Chat(
+        name=chat.name,
+        type=chat.type,
+        created_by=current_user.id
     )
-    db.session.add(chat)
+    db.add(db_chat)
     
     # Add participants
-    participants = set(data['participants'] + [current_user_id])
+    participants = set(chat.participants + [current_user.id])
     for user_id in participants:
         participant = ChatParticipant(
-            chat=chat,
+            chat=db_chat,
             user_id=user_id,
-            role='admin' if user_id == current_user_id else 'member'
+            role="admin" if user_id == current_user.id else "member"
         )
-        db.session.add(participant)
+        db.add(participant)
         
         # Create notification for new participants
-        if user_id != current_user_id:
+        if user_id != current_user.id:
             create_notification(
                 user_id=user_id,
-                title='New Chat',
-                message=f'You have been added to a new chat: {chat.name}',
-                type='chat'
+                title="New Chat",
+                message=f"You have been added to a new chat: {chat.name}",
+                type="chat"
             )
     
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Chat created successfully',
-        'chat': chat.to_dict()
-    }), 201
+    db.commit()
+    db.refresh(db_chat)
+    return db_chat
 
-@chat_bp.route('/api/chats/<int:id>', methods=['GET'])
-@jwt_required()
-def get_chat(id):
-    current_user_id = get_jwt_identity()
-    
+@router.get("/chats/{chat_id}", response_model=ChatResponse)
+async def get_chat(
+    chat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id
+    ).first()
     
-    return jsonify(chat.to_dict())
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    return chat
 
-@chat_bp.route('/api/chats/<int:id>', methods=['PUT'])
-@jwt_required()
-def update_chat(id):
-    current_user_id = get_jwt_identity()
-    
+@router.put("/chats/{chat_id}", response_model=ChatResponse)
+async def update_chat(
+    chat_id: int,
+    chat_update: ChatBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant and has admin role
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id,
-        ChatParticipant.role == 'admin'
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id,
+        ChatParticipant.role == "admin"
+    ).first()
     
-    data = request.get_json()
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or insufficient permissions"
+        )
     
     # Update chat fields
-    if 'name' in data:
-        chat.name = data['name']
-    if 'type' in data:
-        chat.type = data['type']
+    chat.name = chat_update.name
+    chat.type = chat_update.type
     
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Chat updated successfully',
-        'chat': chat.to_dict()
-    })
+    db.commit()
+    db.refresh(chat)
+    return chat
 
-@chat_bp.route('/api/chats/<int:id>', methods=['DELETE'])
-@jwt_required()
-def delete_chat(id):
-    current_user_id = get_jwt_identity()
-    
+@router.delete("/chats/{chat_id}")
+async def delete_chat(
+    chat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant and has admin role
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id,
-        ChatParticipant.role == 'admin'
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id,
+        ChatParticipant.role == "admin"
+    ).first()
     
-    db.session.delete(chat)
-    db.session.commit()
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or insufficient permissions"
+        )
     
-    return jsonify({
-        'message': 'Chat deleted successfully'
-    })
+    db.delete(chat)
+    db.commit()
+    return {"message": "Chat deleted successfully"}
 
-@chat_bp.route('/api/chats/<int:id>/messages', methods=['GET'])
-@jwt_required()
-def get_chat_messages(id):
-    current_user_id = get_jwt_identity()
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 50, type=int)
-    
+@router.get("/chats/{chat_id}/messages", response_model=dict)
+async def get_chat_messages(
+    chat_id: int,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(50, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id
+    ).first()
     
-    messages = ChatMessage.query.filter_by(
-        chat_id=id
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    messages = db.query(ChatMessage).filter_by(
+        chat_id=chat_id
     ).order_by(
         ChatMessage.created_at.desc()
-    ).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    ).offset((page - 1) * per_page).limit(per_page).all()
     
-    return jsonify({
-        'messages': [message.to_dict() for message in messages.items],
-        'total': messages.total,
-        'pages': messages.pages,
-        'current_page': messages.page
-    })
+    total = db.query(ChatMessage).filter_by(chat_id=chat_id).count()
+    
+    return {
+        "messages": messages,
+        "total": total,
+        "pages": (total + per_page - 1) // per_page,
+        "current_page": page
+    }
 
-@chat_bp.route('/api/chats/<int:id>/participants', methods=['GET'])
-@jwt_required()
-def get_chat_participants(id):
-    current_user_id = get_jwt_identity()
-    
+@router.get("/chats/{chat_id}/participants", response_model=List[ChatParticipantResponse])
+async def get_chat_participants(
+    chat_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id
+    ).first()
     
-    participants = ChatParticipant.query.filter_by(
-        chat_id=id
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    participants = db.query(ChatParticipant).filter_by(
+        chat_id=chat_id
     ).all()
     
-    return jsonify({
-        'participants': [participant.to_dict() for participant in participants]
-    })
+    return participants
 
-@chat_bp.route('/api/chats/<int:id>/participants', methods=['POST'])
-@jwt_required()
-def add_chat_participants(id):
-    current_user_id = get_jwt_identity()
-    
+@router.post("/chats/{chat_id}/participants")
+async def add_chat_participants(
+    chat_id: int,
+    participants: List[int],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant and has admin role
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id,
-        ChatParticipant.role == 'admin'
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id,
+        ChatParticipant.role == "admin"
+    ).first()
     
-    data = request.get_json()
-    new_participants = data.get('participants', [])
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or insufficient permissions"
+        )
     
-    if not new_participants:
-        return jsonify({
-            'error': 'No participants provided'
-        }), 400
+    if not participants:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No participants provided"
+        )
     
     # Add new participants
-    for user_id in new_participants:
-        if not ChatParticipant.query.filter_by(
-            chat_id=id, user_id=user_id
+    for user_id in participants:
+        if not db.query(ChatParticipant).filter_by(
+            chat_id=chat_id, user_id=user_id
         ).first():
             participant = ChatParticipant(
-                chat_id=id,
+                chat_id=chat_id,
                 user_id=user_id,
-                role='member'
+                role="member"
             )
-            db.session.add(participant)
+            db.add(participant)
             
             # Create notification for new participant
             create_notification(
                 user_id=user_id,
-                title='Added to Chat',
-                message=f'You have been added to chat: {chat.name}',
-                type='chat'
+                title="Added to Chat",
+                message=f"You have been added to chat: {chat.name}",
+                type="chat"
             )
     
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Participants added successfully'
-    })
+    db.commit()
+    return {"message": "Participants added successfully"}
 
-@chat_bp.route('/api/chats/<int:id>/participants/<int:user_id>', methods=['DELETE'])
-@jwt_required()
-def remove_chat_participant(id, user_id):
-    current_user_id = get_jwt_identity()
-    
+@router.delete("/chats/{chat_id}/participants/{user_id}")
+async def remove_chat_participant(
+    chat_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant and has admin role
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id,
-        ChatParticipant.role == 'admin'
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id,
+        ChatParticipant.role == "admin"
+    ).first()
     
-    # Prevent removing the last admin
-    if user_id == current_user_id:
-        return jsonify({
-            'error': 'Cannot remove yourself from the chat'
-        }), 400
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or insufficient permissions"
+        )
     
-    participant = ChatParticipant.query.filter_by(
-        chat_id=id, user_id=user_id
-    ).first_or_404()
+    participant = db.query(ChatParticipant).filter_by(
+        chat_id=chat_id,
+        user_id=user_id
+    ).first()
     
-    db.session.delete(participant)
-    db.session.commit()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Participant not found"
+        )
     
-    return jsonify({
-        'message': 'Participant removed successfully'
-    })
+    db.delete(participant)
+    db.commit()
+    return {"message": "Participant removed successfully"}
 
-@chat_bp.route('/api/chats/<int:id>/participants/<int:user_id>/role', methods=['PUT'])
-@jwt_required()
-def update_participant_role(id, user_id):
-    current_user_id = get_jwt_identity()
-    
+@router.put("/chats/{chat_id}/participants/{user_id}/role")
+async def update_participant_role(
+    chat_id: int,
+    user_id: int,
+    role: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     # Check if user is a participant and has admin role
-    chat = Chat.query.join(
+    chat = db.query(Chat).join(
         ChatParticipant
     ).filter(
-        Chat.id == id,
-        ChatParticipant.user_id == current_user_id,
-        ChatParticipant.role == 'admin'
-    ).first_or_404()
+        Chat.id == chat_id,
+        ChatParticipant.user_id == current_user.id,
+        ChatParticipant.role == "admin"
+    ).first()
     
-    data = request.get_json()
-    new_role = data.get('role')
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found or insufficient permissions"
+        )
     
-    if not new_role or new_role not in ['admin', 'member']:
-        return jsonify({
-            'error': 'Invalid role'
-        }), 400
+    participant = db.query(ChatParticipant).filter_by(
+        chat_id=chat_id,
+        user_id=user_id
+    ).first()
     
-    participant = ChatParticipant.query.filter_by(
-        chat_id=id, user_id=user_id
-    ).first_or_404()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Participant not found"
+        )
     
-    participant.role = new_role
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Participant role updated successfully',
-        'participant': participant.to_dict()
-    }) 
+    participant.role = role
+    db.commit()
+    return {"message": "Participant role updated successfully"} 

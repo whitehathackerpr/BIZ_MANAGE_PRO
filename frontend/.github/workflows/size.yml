@@ -1,0 +1,34 @@
+name: Bundle Size
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  analyze:
+    name: Analyze Bundle Size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Analyze Bundle Size
+        uses: preactjs/compressed-size-action@v2
+        with:
+          pattern: "dist/assets/*.js"
+          compression: "gzip"
+          show-total: true
+          show-delta: true
+          fail-on-increase: true
+          threshold: 100000 

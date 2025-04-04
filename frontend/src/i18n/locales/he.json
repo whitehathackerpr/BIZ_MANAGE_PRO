@@ -1,0 +1,121 @@
+{
+  "common": {
+    "loading": "טוען...",
+    "error": "שגיאה",
+    "success": "הצלחה",
+    "save": "שמור",
+    "cancel": "ביטול",
+    "delete": "מחק",
+    "edit": "ערוך",
+    "search": "חיפוש",
+    "noResults": "לא נמצאו תוצאות"
+  },
+  "auth": {
+    "login": "התחברות",
+    "register": "הרשמה",
+    "logout": "התנתקות",
+    "email": "דואר אלקטרוני",
+    "password": "סיסמה",
+    "username": "שם משתמש",
+    "confirmPassword": "אימות סיסמה",
+    "forgotPassword": "שכחת סיסמה?",
+    "dontHaveAccount": "אין לך חשבון?",
+    "alreadyHaveAccount": "כבר יש לך חשבון?",
+    "signIn": "התחבר",
+    "signUp": "הרשם",
+    "welcomeBack": "ברוך שובך",
+    "joinPlatform": "הצטרף לפלטפורמת ניהול העסקים שלנו"
+  },
+  "navigation": {
+    "dashboard": "לוח בקרה",
+    "products": "מוצרים",
+    "orders": "הזמנות",
+    "reports": "דוחות",
+    "settings": "הגדרות",
+    "profile": "פרופיל"
+  },
+  "dashboard": {
+    "title": "לוח בקרה",
+    "totalSales": "סך המכירות",
+    "totalOrders": "סך ההזמנות",
+    "totalProducts": "סך המוצרים",
+    "recentOrders": "הזמנות אחרונות",
+    "topProducts": "מוצרים מובילים",
+    "salesChart": "סקירת מכירות",
+    "revenueChart": "סקירת הכנסות"
+  },
+  "products": {
+    "title": "מוצרים",
+    "addProduct": "הוסף מוצר",
+    "editProduct": "ערוך מוצר",
+    "deleteProduct": "מחק מוצר",
+    "productName": "שם המוצר",
+    "description": "תיאור",
+    "price": "מחיר",
+    "cost": "עלות",
+    "quantity": "כמות",
+    "category": "קטגוריה",
+    "sku": "קוד מוצר",
+    "minQuantity": "כמות מינימום",
+    "confirmDelete": "האם אתה בטוח שברצונך למחוק מוצר זה?"
+  },
+  "orders": {
+    "title": "הזמנות",
+    "orderNumber": "מספר הזמנה",
+    "customer": "לקוח",
+    "date": "תאריך",
+    "status": "סטטוס",
+    "total": "סה\"כ",
+    "paymentMethod": "אמצעי תשלום",
+    "viewOrder": "צפה בהזמנה",
+    "newOrder": "הזמנה חדשה",
+    "orderDetails": "פרטי הזמנה"
+  },
+  "reports": {
+    "title": "דוחות",
+    "salesReport": "דוח מכירות",
+    "inventoryReport": "דוח מלאי",
+    "customerReport": "דוח לקוחות",
+    "dateRange": "טווח תאריכים",
+    "generateReport": "צור דוח",
+    "export": "ייצוא",
+    "print": "הדפסה"
+  },
+  "settings": {
+    "title": "הגדרות",
+    "general": "כללי",
+    "notifications": "התראות",
+    "security": "אבטחה",
+    "language": "שפה",
+    "theme": "ערכת נושא",
+    "darkMode": "מצב לילה",
+    "lightMode": "מצב יום"
+  },
+  "profile": {
+    "title": "פרופיל",
+    "personalInfo": "מידע אישי",
+    "changePassword": "שנה סיסמה",
+    "currentPassword": "סיסמה נוכחית",
+    "newPassword": "סיסמה חדשה",
+    "confirmNewPassword": "אימות סיסמה חדשה",
+    "updateProfile": "עדכן פרופיל"
+  },
+  "errors": {
+    "required": "שדה זה נדרש",
+    "email": "כתובת דואר אלקטרוני לא תקינה",
+    "passwordMatch": "הסיסמאות אינן תואמות",
+    "minLength": "חייב להכיל לפחות {{count}} תווים",
+    "invalidCredentials": "כתובת דואר אלקטרוני או סיסמה שגויים",
+    "serverError": "אירעה שגיאת שרת"
+  },
+  "success": {
+    "login": "התחברת בהצלחה!",
+    "register": "נרשמת בהצלחה!",
+    "logout": "התנתקת בהצלחה!",
+    "updateProfile": "הפרופיל עודכן בהצלחה",
+    "changePassword": "הסיסמה שונתה בהצלחה",
+    "addProduct": "המוצר נוסף בהצלחה",
+    "updateProduct": "המוצר עודכן בהצלחה",
+    "deleteProduct": "המוצר נמחק בהצלחה"
+  }
+} 

@@ -1,0 +1,121 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "noResults": "No results found"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "email": "Email",
+    "password": "Password",
+    "username": "Username",
+    "confirmPassword": "Confirm Password",
+    "forgotPassword": "Forgot Password?",
+    "dontHaveAccount": "Don't have an account?",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "welcomeBack": "Welcome Back",
+    "joinPlatform": "Join our business management platform"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "orders": "Orders",
+    "reports": "Reports",
+    "settings": "Settings",
+    "profile": "Profile"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalSales": "Total Sales",
+    "totalOrders": "Total Orders",
+    "totalProducts": "Total Products",
+    "recentOrders": "Recent Orders",
+    "topProducts": "Top Products",
+    "salesChart": "Sales Overview",
+    "revenueChart": "Revenue Overview"
+  },
+  "products": {
+    "title": "Products",
+    "addProduct": "Add Product",
+    "editProduct": "Edit Product",
+    "deleteProduct": "Delete Product",
+    "productName": "Product Name",
+    "description": "Description",
+    "price": "Price",
+    "cost": "Cost",
+    "quantity": "Quantity",
+    "category": "Category",
+    "sku": "SKU",
+    "minQuantity": "Minimum Quantity",
+    "confirmDelete": "Are you sure you want to delete this product?"
+  },
+  "orders": {
+    "title": "Orders",
+    "orderNumber": "Order Number",
+    "customer": "Customer",
+    "date": "Date",
+    "status": "Status",
+    "total": "Total",
+    "paymentMethod": "Payment Method",
+    "viewOrder": "View Order",
+    "newOrder": "New Order",
+    "orderDetails": "Order Details"
+  },
+  "reports": {
+    "title": "Reports",
+    "salesReport": "Sales Report",
+    "inventoryReport": "Inventory Report",
+    "customerReport": "Customer Report",
+    "dateRange": "Date Range",
+    "generateReport": "Generate Report",
+    "export": "Export",
+    "print": "Print"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "notifications": "Notifications",
+    "security": "Security",
+    "language": "Language",
+    "theme": "Theme",
+    "darkMode": "Dark Mode",
+    "lightMode": "Light Mode"
+  },
+  "profile": {
+    "title": "Profile",
+    "personalInfo": "Personal Information",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmNewPassword": "Confirm New Password",
+    "updateProfile": "Update Profile"
+  },
+  "errors": {
+    "required": "This field is required",
+    "email": "Invalid email address",
+    "passwordMatch": "Passwords do not match",
+    "minLength": "Must be at least {{count}} characters",
+    "invalidCredentials": "Invalid email or password",
+    "serverError": "Server error occurred"
+  },
+  "success": {
+    "login": "Login successful!",
+    "register": "Registration successful!",
+    "logout": "Logout successful!",
+    "updateProfile": "Profile updated successfully",
+    "changePassword": "Password changed successfully",
+    "addProduct": "Product added successfully",
+    "updateProduct": "Product updated successfully",
+    "deleteProduct": "Product deleted successfully"
+  }
+} 

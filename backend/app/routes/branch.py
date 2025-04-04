@@ -1,285 +1,366 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from app.models.branch import Branch
-from app.models.inventory import BranchInventory
-from app.models.user import User
-from app.models.sale import Sale
-from app.services.analytics_service import AnalyticsService
-from app import db
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
 from datetime import datetime, timedelta
 
-branch_bp = Blueprint('branch', __name__)
+from ..models import Branch, BranchInventory, User, Sale
+from ..services.analytics_service import AnalyticsService
+from ..extensions import get_db
 
-@branch_bp.route('/api/branches', methods=['GET'])
-@jwt_required()
-def get_branches():
-    try:
-        branches = Branch.query.all()
-        return jsonify([branch.to_dict() for branch in branches])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+router = APIRouter()
 
-@branch_bp.route('/api/branches', methods=['POST'])
-@jwt_required()
-def create_branch():
-    try:
-        data = request.get_json()
-        branch = Branch(**data)
-        db.session.add(branch)
-        db.session.commit()
-        return jsonify(branch.to_dict()), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+# Pydantic models
+class BranchBase(BaseModel):
+    name: str
+    address: str
+    phone: str
+    email: str
+    manager_id: Optional[int] = None
+    settings: Optional[dict] = None
 
-@branch_bp.route('/api/branches/<int:branch_id>', methods=['GET'])
-@jwt_required()
-def get_branch(branch_id):
-    try:
-        branch = Branch.query.get_or_404(branch_id)
-        return jsonify(branch.to_dict())
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+class BranchCreate(BranchBase):
+    pass
 
-@branch_bp.route('/api/branches/<int:branch_id>', methods=['PUT'])
-@jwt_required()
-def update_branch(branch_id):
-    try:
-        branch = Branch.query.get_or_404(branch_id)
-        data = request.get_json()
-        for key, value in data.items():
-            setattr(branch, key, value)
-        db.session.commit()
-        return jsonify(branch.to_dict())
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+class BranchResponse(BranchBase):
+    id: int
+    created_at: datetime
+    users: List[User]
+    inventory: List[BranchInventory]
 
-@branch_bp.route('/api/branches/<int:branch_id>', methods=['DELETE'])
-@jwt_required()
-def delete_branch(branch_id):
-    try:
-        branch = Branch.query.get_or_404(branch_id)
-        db.session.delete(branch)
-        db.session.commit()
-        return '', 204
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+    class Config:
+        from_attributes = True
+
+class BranchInventoryBase(BaseModel):
+    product_id: int
+    quantity: int
+    min_stock_level: int = 10
+    max_stock_level: int = 100
+
+class BranchInventoryResponse(BranchInventoryBase):
+    id: int
+    branch_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TransferRequest(BaseModel):
+    target_branch_id: int
+    quantity: int
+
+# Routes
+@router.get("/branches", response_model=List[BranchResponse])
+async def get_branches(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    branches = db.query(Branch).all()
+    return branches
+
+@router.post("/branches", response_model=BranchResponse, status_code=status.HTTP_201_CREATED)
+async def create_branch(
+    branch: BranchCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_branch = Branch(**branch.dict())
+    db.add(db_branch)
+    db.commit()
+    db.refresh(db_branch)
+    return db_branch
+
+@router.get("/branches/{branch_id}", response_model=BranchResponse)
+async def get_branch(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    branch = db.query(Branch).get(branch_id)
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found"
+        )
+    return branch
+
+@router.put("/branches/{branch_id}", response_model=BranchResponse)
+async def update_branch(
+    branch_id: int,
+    branch_update: BranchBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_branch = db.query(Branch).get(branch_id)
+    if not db_branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found"
+        )
+    
+    for key, value in branch_update.dict().items():
+        setattr(db_branch, key, value)
+    
+    db.commit()
+    db.refresh(db_branch)
+    return db_branch
+
+@router.delete("/branches/{branch_id}")
+async def delete_branch(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    branch = db.query(Branch).get(branch_id)
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found"
+        )
+    
+    db.delete(branch)
+    db.commit()
+    return {"message": "Branch deleted successfully"}
 
 # Branch Inventory Endpoints
-@branch_bp.route('/api/branches/<int:branch_id>/inventory', methods=['GET'])
-@jwt_required()
-def get_branch_inventory(branch_id):
-    try:
-        inventory = BranchInventory.query.filter_by(branch_id=branch_id).all()
-        return jsonify([item.to_dict() for item in inventory])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@router.get("/branches/{branch_id}/inventory", response_model=List[BranchInventoryResponse])
+async def get_branch_inventory(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    inventory = db.query(BranchInventory).filter_by(branch_id=branch_id).all()
+    return inventory
 
-@branch_bp.route('/api/branches/<int:branch_id>/inventory', methods=['POST'])
-@jwt_required()
-def add_branch_inventory(branch_id):
-    try:
-        data = request.get_json()
-        data['branch_id'] = branch_id
-        inventory_item = BranchInventory(**data)
-        db.session.add(inventory_item)
-        db.session.commit()
-        return jsonify(inventory_item.to_dict()), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.post("/branches/{branch_id}/inventory", response_model=BranchInventoryResponse, status_code=status.HTTP_201_CREATED)
+async def add_branch_inventory(
+    branch_id: int,
+    inventory: BranchInventoryBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db_inventory = BranchInventory(branch_id=branch_id, **inventory.dict())
+    db.add(db_inventory)
+    db.commit()
+    db.refresh(db_inventory)
+    return db_inventory
 
-@branch_bp.route('/api/branches/<int:branch_id>/inventory/<int:item_id>', methods=['PUT'])
-@jwt_required()
-def update_branch_inventory(branch_id, item_id):
-    try:
-        item = BranchInventory.query.filter_by(branch_id=branch_id, id=item_id).first_or_404()
-        data = request.get_json()
-        for key, value in data.items():
-            setattr(item, key, value)
-        db.session.commit()
-        return jsonify(item.to_dict())
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.put("/branches/{branch_id}/inventory/{item_id}", response_model=BranchInventoryResponse)
+async def update_branch_inventory(
+    branch_id: int,
+    item_id: int,
+    inventory_update: BranchInventoryBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    item = db.query(BranchInventory).filter_by(branch_id=branch_id, id=item_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found"
+        )
+    
+    for key, value in inventory_update.dict().items():
+        setattr(item, key, value)
+    
+    db.commit()
+    db.refresh(item)
+    return item
 
-@branch_bp.route('/api/branches/<int:branch_id>/inventory/<int:item_id>', methods=['DELETE'])
-@jwt_required()
-def delete_branch_inventory(branch_id, item_id):
-    try:
-        item = BranchInventory.query.filter_by(branch_id=branch_id, id=item_id).first_or_404()
-        db.session.delete(item)
-        db.session.commit()
-        return '', 204
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.delete("/branches/{branch_id}/inventory/{item_id}")
+async def delete_branch_inventory(
+    branch_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    item = db.query(BranchInventory).filter_by(branch_id=branch_id, id=item_id).first()
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inventory item not found"
+        )
+    
+    db.delete(item)
+    db.commit()
+    return {"message": "Inventory item deleted successfully"}
 
 # Branch Transfer Endpoints
-@branch_bp.route('/api/branches/<int:branch_id>/inventory/<int:item_id>/transfer', methods=['POST'])
-@jwt_required()
-def transfer_inventory(branch_id, item_id):
-    try:
-        data = request.get_json()
-        source_item = BranchInventory.query.filter_by(branch_id=branch_id, id=item_id).first_or_404()
-        target_branch_id = data.get('target_branch_id')
-        quantity = data.get('quantity')
-
-        if source_item.quantity < quantity:
-            return jsonify({'error': 'Insufficient inventory'}), 400
-
-        # Create or update target branch inventory
-        target_item = BranchInventory.query.filter_by(
-            branch_id=target_branch_id,
-            product_id=source_item.product_id
-        ).first()
-
-        if target_item:
-            target_item.quantity += quantity
-        else:
-            target_item = BranchInventory(
-                branch_id=target_branch_id,
-                product_id=source_item.product_id,
-                quantity=quantity,
-                min_stock_level=source_item.min_stock_level,
-                max_stock_level=source_item.max_stock_level
-            )
-            db.session.add(target_item)
-
-        source_item.quantity -= quantity
-        db.session.commit()
-        return jsonify({'message': 'Transfer successful'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.post("/branches/{branch_id}/inventory/{item_id}/transfer")
+async def transfer_inventory(
+    branch_id: int,
+    item_id: int,
+    transfer: TransferRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    source_item = db.query(BranchInventory).filter_by(branch_id=branch_id, id=item_id).first()
+    if not source_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Source inventory item not found"
+        )
+    
+    if source_item.quantity < transfer.quantity:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Insufficient inventory"
+        )
+    
+    # Create or update target branch inventory
+    target_item = db.query(BranchInventory).filter_by(
+        branch_id=transfer.target_branch_id,
+        product_id=source_item.product_id
+    ).first()
+    
+    if target_item:
+        target_item.quantity += transfer.quantity
+    else:
+        target_item = BranchInventory(
+            branch_id=transfer.target_branch_id,
+            product_id=source_item.product_id,
+            quantity=transfer.quantity,
+            min_stock_level=source_item.min_stock_level,
+            max_stock_level=source_item.max_stock_level
+        )
+        db.add(target_item)
+    
+    source_item.quantity -= transfer.quantity
+    db.commit()
+    return {"message": "Transfer successful"}
 
 # Branch Performance Endpoints
-@branch_bp.route('/api/branches/<int:branch_id>/performance', methods=['GET'])
-@jwt_required()
-def get_branch_performance(branch_id):
-    try:
-        time_range = request.args.get('timeRange', 'week')
-        end_date = datetime.now()
-        
-        if time_range == 'day':
-            start_date = end_date - timedelta(days=1)
-        elif time_range == 'week':
-            start_date = end_date - timedelta(weeks=1)
-        elif time_range == 'month':
-            start_date = end_date - timedelta(days=30)
-        else:  # year
-            start_date = end_date - timedelta(days=365)
-
-        # Get sales data
-        sales = Sale.query.filter(
-            Sale.branch_id == branch_id,
-            Sale.created_at.between(start_date, end_date)
-        ).all()
-
-        # Calculate metrics
-        revenue = sum(sale.total_amount for sale in sales)
-        orders = len(sales)
-        average_order_value = revenue / orders if orders > 0 else 0
-
-        # Get inventory data
-        inventory = BranchInventory.query.filter_by(branch_id=branch_id).all()
-        inventory_data = [{
-            'name': item.product.name,
-            'quantity': item.quantity
-        } for item in inventory]
-
-        # Get top products
-        top_products = AnalyticsService.get_top_products(branch_id, start_date, end_date)
-
-        # Calculate customer retention
-        customer_retention = AnalyticsService.calculate_customer_retention(branch_id, start_date, end_date)
-
-        return jsonify({
-            'revenue': revenue,
-            'orders': orders,
-            'averageOrderValue': average_order_value,
-            'inventory': inventory_data,
-            'topProducts': top_products,
-            'customerRetention': customer_retention,
-            'sales': [{
-                'date': sale.created_at.strftime('%Y-%m-%d'),
-                'amount': sale.total_amount
-            } for sale in sales]
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@router.get("/branches/{branch_id}/performance")
+async def get_branch_performance(
+    branch_id: int,
+    time_range: str = Query("week", regex="^(day|week|month|year)$"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    end_date = datetime.now()
+    
+    if time_range == "day":
+        start_date = end_date - timedelta(days=1)
+    elif time_range == "week":
+        start_date = end_date - timedelta(weeks=1)
+    elif time_range == "month":
+        start_date = end_date - timedelta(days=30)
+    else:  # year
+        start_date = end_date - timedelta(days=365)
+    
+    # Get sales data
+    sales = db.query(Sale).filter(
+        Sale.branch_id == branch_id,
+        Sale.created_at.between(start_date, end_date)
+    ).all()
+    
+    # Calculate metrics
+    revenue = sum(sale.total_amount for sale in sales)
+    orders = len(sales)
+    average_order_value = revenue / orders if orders > 0 else 0
+    
+    # Get inventory data
+    inventory = db.query(BranchInventory).filter_by(branch_id=branch_id).all()
+    inventory_data = [{
+        "name": item.product.name,
+        "quantity": item.quantity
+    } for item in inventory]
+    
+    # Get top products
+    top_products = AnalyticsService.get_top_products(branch_id, start_date, end_date)
+    
+    # Calculate customer retention
+    customer_retention = AnalyticsService.calculate_customer_retention(branch_id, start_date, end_date)
+    
+    return {
+        "revenue": revenue,
+        "orders": orders,
+        "averageOrderValue": average_order_value,
+        "inventory": inventory_data,
+        "topProducts": top_products,
+        "customerRetention": customer_retention,
+        "sales": [{
+            "date": sale.created_at.strftime("%Y-%m-%d"),
+            "amount": sale.total_amount
+        } for sale in sales]
+    }
 
 # Branch Settings Endpoints
-@branch_bp.route('/api/branches/<int:branch_id>/settings', methods=['GET'])
-@jwt_required()
-def get_branch_settings(branch_id):
-    try:
-        branch = Branch.query.get_or_404(branch_id)
-        return jsonify(branch.settings)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@router.get("/branches/{branch_id}/settings")
+async def get_branch_settings(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    branch = db.query(Branch).get(branch_id)
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found"
+        )
+    return branch.settings
 
-@branch_bp.route('/api/branches/<int:branch_id>/settings', methods=['PUT'])
-@jwt_required()
-def update_branch_settings(branch_id):
-    try:
-        branch = Branch.query.get_or_404(branch_id)
-        data = request.get_json()
-        branch.settings = data
-        db.session.commit()
-        return jsonify(branch.settings)
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.put("/branches/{branch_id}/settings")
+async def update_branch_settings(
+    branch_id: int,
+    settings: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    branch = db.query(Branch).get(branch_id)
+    if not branch:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Branch not found"
+        )
+    
+    branch.settings = settings
+    db.commit()
+    return branch.settings
 
 # Branch Users Endpoints
-@branch_bp.route('/api/branches/<int:branch_id>/users', methods=['GET'])
-@jwt_required()
-def get_branch_users(branch_id):
-    try:
-        users = User.query.filter_by(branch_id=branch_id).all()
-        return jsonify([user.to_dict() for user in users])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+@router.get("/branches/{branch_id}/users", response_model=List[User])
+async def get_branch_users(
+    branch_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    users = db.query(User).filter_by(branch_id=branch_id).all()
+    return users
 
-@branch_bp.route('/api/branches/<int:branch_id>/users', methods=['POST'])
-@jwt_required()
-def assign_user_to_branch(branch_id):
-    try:
-        data = request.get_json()
-        user_id = data.get('user_id')
-        user = User.query.get_or_404(user_id)
-        user.branch_id = branch_id
-        db.session.commit()
-        return jsonify(user.to_dict()), 201
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+@router.post("/branches/{branch_id}/users/{user_id}")
+async def assign_user_to_branch(
+    branch_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    user = db.query(User).get(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    user.branch_id = branch_id
+    db.commit()
+    return {"message": "User assigned to branch successfully"}
 
-@branch_bp.route('/api/branches/<int:branch_id>/users/<int:user_id>', methods=['PUT'])
-@jwt_required()
-def update_branch_user(branch_id, user_id):
-    try:
-        user = User.query.filter_by(branch_id=branch_id, id=user_id).first_or_404()
-        data = request.get_json()
-        for key, value in data.items():
-            setattr(user, key, value)
-        db.session.commit()
-        return jsonify(user.to_dict())
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@branch_bp.route('/api/branches/<int:branch_id>/users/<int:user_id>', methods=['DELETE'])
-@jwt_required()
-def remove_user_from_branch(branch_id, user_id):
-    try:
-        user = User.query.filter_by(branch_id=branch_id, id=user_id).first_or_404()
-        user.branch_id = None
-        db.session.commit()
-        return '', 204
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500 
+@router.delete("/branches/{branch_id}/users/{user_id}")
+async def remove_user_from_branch(
+    branch_id: int,
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    user = db.query(User).get(user_id)
+    if not user or user.branch_id != branch_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found in this branch"
+        )
+    
+    user.branch_id = None
+    db.commit()
+    return {"message": "User removed from branch successfully"} 

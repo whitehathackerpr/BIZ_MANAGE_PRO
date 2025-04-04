@@ -8,6 +8,8 @@
     "install-all": "npm install && cd frontend && npm install",
     "start": "cd frontend && npm run preview"
   },
-  "dependencies": {},
-  "devDependencies": {}
-} 
+  "dependencies": {
+    "@types/react-toastify": "^4.1.0",
+    "react-toastify": "^11.0.5"
+  }
+}

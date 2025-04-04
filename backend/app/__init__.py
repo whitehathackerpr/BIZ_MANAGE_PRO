@@ -1,75 +1,80 @@
-from flask import Flask
-from flask_socketio import SocketIO
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from redis import Redis
+from fastapi import FastAPI, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from typing import List
+from datetime import timedelta
 
-from config import Config
-from app.extensions import db, migrate, jwt, cors, mail, socketio, limiter, login_manager
+from app.config import get_settings, Settings
+from app.utils.cors import setup_cors
 
-def create_app(config_class=Config):
-    app = Flask(__name__)
-    app.config.from_object(config_class)
+def create_app() -> FastAPI:
+    settings = get_settings()
 
-    # Initialize extensions
-    db.init_app(app)
-    migrate.init_app(app, db)
-    jwt.init_app(app)
-    mail.init_app(app)
-    cors.init_app(app)
-    socketio.init_app(app, cors_allowed_origins="*")
-    limiter.init_app(app)
-    
-    # Configure Flask-Login
-    login_manager.init_app(app)
-    login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Please log in to access this page.'
-    login_manager.login_message_category = 'info'
+    # Configure logging
+    log_level = getattr(logging, settings.log_level.upper())
+    logging.basicConfig(level=log_level)
+    if settings.log_file:
+        os.makedirs(os.path.dirname(settings.log_file), exist_ok=True)
+        file_handler = RotatingFileHandler(
+            settings.log_file, maxBytes=10485760, backupCount=5
+        )
+        file_handler.setLevel(log_level)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        logging.getLogger().addHandler(file_handler)
+
+    # Initialize FastAPI
+    app = FastAPI(
+        title="BizManage Pro API",
+        description="Backend API for BizManage Pro application",
+        version="1.0.0",
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
+    )
+
+    # Setup CORS
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins.split(","),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    # Mount static files
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
     # Setup logging
-    if not app.debug and not app.testing:
-        if app.config['LOG_TO_STDOUT']:
-            stream_handler = logging.StreamHandler()
-            stream_handler.setLevel(app.config['LOG_LEVEL'])
-            formatter = logging.Formatter(app.config['LOG_FORMAT'])
-            stream_handler.setFormatter(formatter)
-            app.logger.addHandler(stream_handler)
-            app.logger.setLevel(app.config['LOG_LEVEL'])
-        else:
-            if not os.path.exists('logs'):
-                os.mkdir('logs')
-            file_handler = RotatingFileHandler(
-                app.config['LOG_FILE'], maxBytes=10240, backupCount=10)
-            file_handler.setFormatter(logging.Formatter(app.config['LOG_FORMAT']))
-            file_handler.setLevel(app.config['LOG_LEVEL'])
-            app.logger.addHandler(file_handler)
-            app.logger.setLevel(app.config['LOG_LEVEL'])
-            app.logger.info('Business Management System startup')
+    logging.info('Business Management System startup')
 
     # Create upload folder if it doesn't exist
-    if not os.path.exists(app.config['UPLOAD_FOLDER']):
-        os.makedirs(app.config['UPLOAD_FOLDER'])
+    if not os.path.exists(settings.upload_folder):
+        os.makedirs(settings.upload_folder)
 
-    # Register blueprints
-    from app.api import bp as api_bp
-    app.register_blueprint(api_bp, url_prefix='/api/v1')
+    # Include routers dynamically
+    try:
+        from app.routes import auth
+        app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+        logging.info("Loaded auth routes")
+    except ImportError as e:
+        logging.warning(f"Could not load auth routes: {str(e)}")
 
-    from app.auth import bp as auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/auth')
+    try:
+        from app.routes import health
+        app.include_router(health.router, prefix="/health", tags=["Health"])
+        logging.info("Loaded health routes")
+    except ImportError as e:
+        logging.warning(f"Could not load health routes: {str(e)}")
 
-    from app.main import bp as main_bp
-    app.register_blueprint(main_bp)
-
-    # Import models after app context is created
-    with app.app_context():
-        from app import models
-        
-        # Configure Flask-Login user loader
-        @login_manager.user_loader
-        def load_user(id):
-            return models.User.query.get(int(id))
+    @app.get("/")
+    async def root():
+        return {"message": "Welcome to BIZ_MANAGE_PRO API"}
 
     return app 

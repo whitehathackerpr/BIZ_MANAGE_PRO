@@ -1,19 +1,21 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class Branch(db.Model):
+class Branch(Base):
     __tablename__ = 'branches'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    address = db.Column(db.String(255))
-    phone = db.Column(db.String(20))
-    email = db.Column(db.String(120))
-    manager_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    status = db.Column(db.String(20), default='active')  # active, inactive, closed
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    settings = db.Column(db.JSON, default={
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    address = Column(String(255))
+    phone = Column(String(20))
+    email = Column(String(120))
+    manager_id = Column(Integer, ForeignKey('users.id'))
+    status = Column(String(20), default='active')  # active, inactive, closed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    settings = Column(JSON, default={
         'operating_hours': {
             'monday': {'open': '09:00', 'close': '17:00'},
             'tuesday': {'open': '09:00', 'close': '17:00'},
@@ -41,11 +43,11 @@ class Branch(db.Model):
     })
 
     # Relationships
-    manager = db.relationship('User', foreign_keys=[manager_id], backref='managed_branches')
-    employees = db.relationship('Employee', backref='branch', lazy=True)
-    users = db.relationship('User', foreign_keys='User.branch_id', backref='branch')
-    inventory = db.relationship('BranchInventory', backref='branch', lazy=True)
-    sales = db.relationship('Sale', backref='branch', lazy=True)
+    manager = relationship('User', foreign_keys=[manager_id], backref='managed_branches')
+    employees = relationship('Employee', backref='branch', lazy=True)
+    users = relationship('User', foreign_keys='User.branch_id', backref='branch')
+    inventory = relationship('BranchInventory', backref='branch', lazy=True)
+    sales = relationship('Sale', backref='branch', lazy=True)
 
     def to_dict(self):
         return {

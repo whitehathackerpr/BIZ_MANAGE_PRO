@@ -1,139 +1,342 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime, date
+from sqlalchemy import func
+
 from ..services.analytics_service import AnalyticsService
 from ..utils.decorators import admin_required
+from ..models import (
+    Expense, Revenue, FinancialReport, SaleItem, Sale,
+    SalesForecast, RevenueForecast, InventoryTransaction,
+    Product, User
+)
+from ..extensions import get_db
 
-analytics_bp = Blueprint('analytics', __name__)
+router = APIRouter()
 
-@analytics_bp.route('/api/analytics/dashboard')
-@jwt_required()
-def get_dashboard_analytics():
+# Pydantic models
+class EventBase(BaseModel):
+    event_type: str
+    event_data: Optional[dict] = None
+
+class MetricBase(BaseModel):
+    metric_type: str
+    metric_value: float
+    metric_date: Optional[date] = None
+
+class ReportBase(BaseModel):
+    report_type: str
+    start_date: date
+    end_date: date
+
+class ExpenseBase(BaseModel):
+    branch_id: int
+    category: str
+    amount: float
+    description: Optional[str] = None
+    date: date
+
+class RevenueBase(BaseModel):
+    branch_id: int
+    category: str
+    amount: float
+    description: Optional[str] = None
+    date: date
+
+# Routes
+@router.get("/dashboard")
+async def get_dashboard_analytics(
+    time_range: str = Query("30days", description="Time range for analytics"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        time_range = request.args.get('timeRange', '30days')
         metrics = AnalyticsService.get_dashboard_metrics(time_range)
-        return jsonify(metrics)
+        return metrics
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@analytics_bp.route('/api/analytics/sales')
-@jwt_required()
-def get_sales_analytics():
+@router.get("/sales")
+async def get_sales_analytics(
+    start_date: date = Query(..., description="Start date for analytics"),
+    end_date: date = Query(..., description="End date for analytics"),
+    group_by: str = Query("day", description="Grouping for analytics"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        start_date = request.args.get('start_date', type=lambda x: datetime.strptime(x, '%Y-%m-%d'))
-        end_date = request.args.get('end_date', type=lambda x: datetime.strptime(x, '%Y-%m-%d'))
-        group_by = request.args.get('group_by', 'day')
-
         metrics = AnalyticsService.get_dashboard_metrics()
-        return jsonify({
+        return {
             'sales_data': metrics['sales_metrics']['daily_sales']
-        })
+        }
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@analytics_bp.route('/api/analytics/products')
-@jwt_required()
-def get_product_analytics():
+@router.get("/products")
+async def get_product_analytics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
         metrics = AnalyticsService.get_dashboard_metrics()
-        return jsonify({
+        return {
             'product_metrics': metrics['product_metrics']
-        })
+        }
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@analytics_bp.route('/api/analytics/customers')
-@jwt_required()
-def get_customer_analytics():
+@router.get("/customers")
+async def get_customer_analytics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
         metrics = AnalyticsService.get_dashboard_metrics()
-        return jsonify({
+        return {
             'customer_metrics': metrics['customer_metrics']
-        })
+        }
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@analytics_bp.route('/api/analytics/inventory')
-@jwt_required()
-def get_inventory_analytics():
+@router.get("/inventory")
+async def get_inventory_analytics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
         metrics = AnalyticsService.get_inventory_metrics()
-        return jsonify(metrics)
+        return metrics
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@analytics_bp.route('/api/analytics/events', methods=['POST'])
-@jwt_required()
-def track_event():
-    try:
-        data = request.get_json()
-        event_type = data.get('event_type')
-        event_data = data.get('event_data')
-        user_id = get_jwt_identity()
-
-        if not event_type:
-            return jsonify({'error': 'Event type is required'}), 400
-
-        event = AnalyticsService.track_event(
-            event_type=event_type,
-            event_data=event_data,
-            user_id=user_id
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
-        return jsonify(event.to_dict()), 201
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
-@analytics_bp.route('/api/analytics/metrics', methods=['POST'])
-@jwt_required()
-@admin_required
-def record_metric():
+@router.post("/events")
+async def track_event(
+    event: EventBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     try:
-        data = request.get_json()
-        metric_type = data.get('metric_type')
-        metric_value = data.get('metric_value')
-        metric_date = data.get('metric_date')
+        if not event.event_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Event type is required"
+            )
 
-        if not metric_type or metric_value is None:
-            return jsonify({'error': 'Metric type and value are required'}), 400
-
-        metric = AnalyticsService.record_metric(
-            metric_type=metric_type,
-            metric_value=metric_value,
-            metric_date=metric_date
+        tracked_event = AnalyticsService.track_event(
+            event_type=event.event_type,
+            event_data=event.event_data,
+            user_id=current_user.id
         )
-        return jsonify(metric.to_dict()), 201
+        return tracked_event
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-@analytics_bp.route('/api/analytics/reports', methods=['POST'])
-@jwt_required()
-@admin_required
-def generate_report():
+@router.post("/metrics")
+async def record_metric(
+    metric: MetricBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
     try:
-        data = request.get_json()
-        report_type = data.get('report_type')
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        created_by = get_jwt_identity()
+        if not metric.metric_type or metric.metric_value is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Metric type and value are required"
+            )
 
-        if not all([report_type, start_date, end_date]):
-            return jsonify({'error': 'Report type, start date, and end date are required'}), 400
+        recorded_metric = AnalyticsService.record_metric(
+            metric_type=metric.metric_type,
+            metric_value=metric.metric_value,
+            metric_date=metric.metric_date
+        )
+        return recorded_metric
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-        report = AnalyticsService.generate_report(
-            report_type=report_type,
+@router.post("/reports")
+async def generate_report(
+    report: ReportBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    try:
+        if not all([report.report_type, report.start_date, report.end_date]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Report type, start date, and end date are required"
+            )
+
+        generated_report = AnalyticsService.generate_report(
+            report_type=report.report_type,
+            start_date=report.start_date,
+            end_date=report.end_date,
+            created_by=current_user.id
+        )
+        return generated_report
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/reports/{report_type}")
+async def get_reports(
+    report_type: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        reports = AnalyticsReport.get_reports_by_type(report_type, current_user.id)
+        return reports
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.post("/financial/expenses")
+async def add_expense(
+    expense: ExpenseBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        db_expense = Expense(
+            branch_id=expense.branch_id,
+            category=expense.category,
+            amount=expense.amount,
+            description=expense.description,
+            date=expense.date
+        )
+        db.add(db_expense)
+        db.commit()
+        db.refresh(db_expense)
+        
+        return db_expense
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.post("/financial/revenue")
+async def add_revenue(
+    revenue: RevenueBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        db_revenue = Revenue(
+            branch_id=revenue.branch_id,
+            category=revenue.category,
+            amount=revenue.amount,
+            description=revenue.description,
+            date=revenue.date
+        )
+        db.add(db_revenue)
+        db.commit()
+        db.refresh(db_revenue)
+        
+        return db_revenue
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/financial/report")
+async def get_financial_report(
+    branch_id: int = Query(..., description="Branch ID"),
+    start_date: date = Query(..., description="Start date"),
+    end_date: date = Query(..., description="End date"),
+    report_type: str = Query("monthly", description="Report type"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        if not all([branch_id, start_date, end_date]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required parameters"
+            )
+        
+        # Get total revenue
+        total_revenue = db.query(func.sum(Revenue.amount))\
+            .filter(
+                Revenue.branch_id == branch_id,
+                Revenue.date.between(start_date, end_date)
+            ).scalar() or 0
+        
+        # Get total expenses
+        total_expenses = db.query(func.sum(Expense.amount))\
+            .filter(
+                Expense.branch_id == branch_id,
+                Expense.date.between(start_date, end_date)
+            ).scalar() or 0
+        
+        # Calculate net profit
+        net_profit = total_revenue - total_expenses
+        
+        # Create or update financial report
+        report = db.query(FinancialReport).filter_by(
+            branch_id=branch_id,
             start_date=start_date,
             end_date=end_date,
-            created_by=created_by
-        )
-        return jsonify(report.to_dict()), 201
+            report_type=report_type
+        ).first()
+        
+        if not report:
+            report = FinancialReport(
+                branch_id=branch_id,
+                start_date=start_date,
+                end_date=end_date,
+                total_revenue=total_revenue,
+                total_expenses=total_expenses,
+                net_profit=net_profit,
+                report_type=report_type
+            )
+            db.add(report)
+        else:
+            report.total_revenue = total_revenue
+            report.total_expenses = total_expenses
+            report.net_profit = net_profit
+        
+        db.commit()
+        db.refresh(report)
+        
+        return report
+        
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@analytics_bp.route('/api/analytics/reports/<report_type>')
-@jwt_required()
-def get_reports(report_type):
-    try:
-        user_id = get_jwt_identity()
-        reports = AnalyticsReport.get_reports_by_type(report_type, user_id)
-        return jsonify([report.to_dict() for report in reports])
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        ) 

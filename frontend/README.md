@@ -1,198 +1,98 @@
-# BizManage Pro Frontend
+# Business Management Pro - Frontend
 
-A modern React frontend application for BizManage Pro, built with Vite and following best practices for scalability and maintainability.
+This is the frontend application for the Business Management Pro system, built with React, TypeScript, and Vite.
 
 ## Features
 
-- Modern React with Vite for fast development
-- Responsive design with a 12-column grid system
-- Authentication system with protected routes
-- Reusable components with consistent styling
-- API integration with Axios
-- State management with React Context
-- Custom hooks for data fetching
+- Modern UI with Tailwind CSS
+- Type-safe development with TypeScript
+- State management with React Query
 - Form handling with React Hook Form
-- Type checking with PropTypes
+- Real-time notifications with WebSocket
+- Authentication and authorization
+- Responsive design
+- Dark mode support
 
-## Tech Stack
+## Prerequisites
 
-- React 18
-- Vite
-- React Router DOM
-- Axios
-- React Query
-- React Hook Form
-- Material-UI
-- CSS Variables for theming
+- Node.js (v18 or higher)
+- npm or yarn
 
 ## Getting Started
 
-### Prerequisites
+1. Install dependencies:
 
-- Node.js (v14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd frontend
-```
-
-2. Install dependencies:
 ```bash
 npm install
+# or
+yarn install
 ```
 
-3. Create a `.env` file in the root directory:
-```env
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_APP_NAME=BizManage Pro
-VITE_APP_VERSION=1.0.0
-```
+2. Start the development server:
 
-4. Start the development server:
 ```bash
 npm run dev
+# or
+yarn dev
+```
+
+3. Build for production:
+
+```bash
+npm run build
+# or
+yarn build
+```
+
+4. Preview the production build:
+
+```bash
+npm run preview
+# or
+yarn preview
 ```
 
 ## Project Structure
 
 ```
 src/
-├── api/                 # API configuration and services
-│   ├── api.js          # Axios instance setup
-│   ├── auth.js         # Authentication API
-│   └── inventory.js    # Inventory API
-├── assets/             # Static assets
-│   ├── images/         # Image files
-│   └── fonts/          # Custom fonts
-├── components/         # Reusable components
-│   ├── common/         # Generic components
-│   ├── layout/         # Layout components
-│   └── widgets/        # Feature-specific components
-├── context/           # Global state management
-│   └── AuthContext.jsx # Authentication context
-├── hooks/             # Custom React hooks
-│   └── useFetch.js    # Data fetching hook
-├── pages/             # Page components
-├── styles/            # Global styles
-│   ├── global.css     # Global styles
-│   └── variables.css  # CSS variables
-└── App.jsx            # Main application component
+├── components/     # Reusable UI components
+├── contexts/       # React contexts
+├── hooks/          # Custom React hooks
+├── lib/            # Utility functions
+├── pages/          # Page components
+├── routes/         # Route definitions
+├── services/       # API and WebSocket services
+├── types/          # TypeScript type definitions
+└── utils/          # Helper functions
 ```
 
-## Design Guidelines
+## Environment Variables
 
-### Colors
+Create a `.env` file in the root directory with the following variables:
 
-- Primary Blue: #2F80ED
-- Secondary Blue: #56CCF2
-- Accent Orange: #F2994A
-- Error Red: #EB5757
-- Dark Text: #333333
-- Medium Text: #4F4F4F
-- Light Background: #FFFFFF
-- Surface Gray: #F4F4F4
-- Border Gray: #E0E0E0
-
-### Typography
-
-- Font Family: Roboto, sans-serif
-- H1: 36px bold
-- H2: 30px bold
-- H3: 24px bold
-- H4: 20px bold
-- Body: 16px
-- Small: 14px
-
-### Spacing
-
-- Base unit: 8px
-- xs: 4px
-- sm: 8px
-- md: 16px
-- lg: 24px
-- xl: 32px
-
-## API Integration
-
-The frontend communicates with the backend through the following main endpoints:
-
-### Authentication
-- POST /api/auth/login
-- POST /api/auth/register
-- POST /api/auth/logout
-
-### Inventory
-- GET /api/inventory/products
-- GET /api/inventory/products/:id
-- POST /api/inventory/products
-- PUT /api/inventory/products/:id
-- DELETE /api/inventory/products/:id
-- POST /api/inventory/adjust
-
-## Development Guidelines
-
-### Code Style
-
-- Use functional components with hooks
-- Follow the component structure:
-  ```jsx
-  import React from 'react';
-  import PropTypes from 'prop-types';
-  import './ComponentName.css';
-  
-  const ComponentName = ({ prop1, prop2 }) => {
-    return (
-      // Component JSX
-    );
-  };
-  
-  ComponentName.propTypes = {
-    prop1: PropTypes.string.isRequired,
-    prop2: PropTypes.number,
-  };
-  
-  export default ComponentName;
-  ```
-
-### State Management
-
-- Use React Context for global state
-- Use local state for component-specific state
-- Use custom hooks for reusable logic
-
-### Performance
-
-- Implement code splitting with React.lazy()
-- Use React.memo() for expensive components
-- Optimize images and assets
-- Use proper caching strategies
-
-## Testing
-
-Run tests:
-```bash
-npm test
+```env
+VITE_API_URL=http://localhost:8000/api
+VITE_WS_URL=ws://localhost:8000/ws
 ```
 
-## Building for Production
+## Development
 
-Build the application:
-```bash
-npm run build
-```
-
-The build output will be in the `dist` directory.
+- The application uses Vite for fast development and building
+- ESLint and Prettier are configured for code quality
+- TypeScript is used for type safety
+- Tailwind CSS is used for styling
+- React Query is used for data fetching and caching
+- React Router is used for routing
+- React Hot Toast is used for notifications
 
 ## Contributing
 
-1. Create a feature branch
-2. Make your changes
-3. Submit a pull request
+1. Fork the repository
+2. Create a new branch
+3. Make your changes
+4. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.

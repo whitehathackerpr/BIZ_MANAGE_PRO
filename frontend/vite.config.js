@@ -23,14 +23,20 @@ export default defineConfig(({ mode }) => {
         '@emotion/react',
         '@emotion/styled',
         '@mui/material',
-        '@mui/icons-material'
+        '@mui/icons-material',
+        'react-i18next',
+        'i18next',
+        'formik',
+        'zustand',
+        'ethers'
       ],
+      exclude: ['react-refresh/runtime']
     },
     server: {
       port: 5173,
       proxy: {
         '/api': {
-          target: 'http://localhost:5000',
+          target: 'http://localhost:8000',
           changeOrigin: true,
         },
       },

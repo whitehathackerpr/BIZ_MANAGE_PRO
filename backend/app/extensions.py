@@ -1,19 +1,44 @@
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
-from flask_cors import CORS
-from flask_mail import Mail
-from flask_socketio import SocketIO
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
-from flask_login import LoginManager
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import os
+from app.config import get_settings
 
-# Initialize extensions
-db = SQLAlchemy()
-migrate = Migrate()
-jwt = JWTManager()
-cors = CORS()
-mail = Mail()
-socketio = SocketIO()
-limiter = Limiter(key_func=get_remote_address)
-login_manager = LoginManager() 
+# Database
+settings = get_settings()
+engine = create_engine(settings.database_url)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+# Database dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Create a reference to db for backward compatibility
+db = SessionLocal()
+
+# Redis client - initialized later
+redis_client = None
+
+# Limiter object - placeholder for FastAPI limiter
+limiter = None
+
+# Initialize directories
+def init_directories():
+    """Ensure required directories exist"""
+    directories = [
+        "logs",
+        "uploads",
+        "uploads/profile_pics",
+        "uploads/product_images"
+    ]
+    
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+    
+    return True

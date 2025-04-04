@@ -1,63 +1,141 @@
 version: '3.8'
 
 services:
-  web:
-    build: .
-    restart: always
-    env_file: .env
-    depends_on:
-      - db
-      - redis
-      - celery
+  # Backend service
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: biz_manage_pro_backend
+    restart: unless-stopped
     ports:
       - "8000:8000"
-    volumes:
-      - ./app:/app
-      - static_volume:/app/static
-      - media_volume:/app/media
-    command: gunicorn wsgi:app -w 4 -b 0.0.0.0:8000
-
-  db:
-    image: postgres:13
-    restart: always
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-
-  redis:
-    image: redis:6
-    restart: always
+      - APP_ENV=development
+      - DEBUG=True
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/biz_manage_pro
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET_KEY=your-secret-key-here
+      - SESSION_SECRET_KEY=your-session-secret-here
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
     volumes:
-      - redis_data:/data
-
-  celery:
-    build: .
-    restart: always
-    env_file: .env
+      - ./backend:/app
+      - backend-logs:/app/logs
+      - backend-uploads:/app/uploads
+      - backend-backups:/app/backups
     depends_on:
-      - redis
       - db
-    command: celery -A app.celery worker -l info
+      - redis
+    networks:
+      - biz_manage_pro_network
 
-  nginx:
-    image: nginx:1.19
-    restart: always
+  # Frontend service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: biz_manage_pro_frontend
+    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
     volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - static_volume:/app/static
-      - media_volume:/app/media
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
-      - web
+      - backend
+    networks:
+      - biz_manage_pro_network
 
+  # PostgreSQL database
+  db:
+    image: postgres:14-alpine
+    container_name: biz_manage_pro_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=biz_manage_pro
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - biz_manage_pro_network
+
+  # Redis cache
+  redis:
+    image: redis:6-alpine
+    container_name: biz_manage_pro_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - biz_manage_pro_network
+
+  # pgAdmin (Database management)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: biz_manage_pro_pgadmin
+    restart: unless-stopped
+    ports:
+      - "5050:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@example.com
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      - db
+    networks:
+      - biz_manage_pro_network
+
+  # Prometheus (Metrics)
+  prometheus:
+    image: prom/prometheus
+    container_name: biz_manage_pro_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    networks:
+      - biz_manage_pro_network
+
+  # Grafana (Visualization)
+  grafana:
+    image: grafana/grafana
+    container_name: biz_manage_pro_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - biz_manage_pro_network
+
+# Volumes
 volumes:
-  postgres_data:
-  redis_data:
-  static_volume:
-  media_volume: 
+  postgres-data:
+  redis-data:
+  pgadmin-data:
+  prometheus-data:
+  grafana-data:
+  backend-logs:
+  backend-uploads:
+  backend-backups:
+
+# Networks
+networks:
+  biz_manage_pro_network:
+    driver: bridge 

@@ -1,44 +1,67 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from ..models import NotificationSetting
-from ..extensions import db
+from fastapi import APIRouter, Depends, HTTPException, status
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import Dict, Any
+from pydantic import BaseModel
 
-notification_settings_bp = Blueprint('notification_settings', __name__)
+from ..models import NotificationSetting, User
+from ..extensions import get_db
 
-@notification_settings_bp.route('/api/notification-settings', methods=['GET'])
-@jwt_required()
-def get_notification_settings():
-    current_user_id = get_jwt_identity()
-    settings = NotificationSetting.get_or_create(current_user_id)
-    return jsonify(settings.to_dict())
+router = APIRouter()
 
-@notification_settings_bp.route('/api/notification-settings', methods=['PUT'])
-@jwt_required()
-def update_notification_settings():
-    current_user_id = get_jwt_identity()
-    settings = NotificationSetting.get_or_create(current_user_id)
-    data = request.get_json()
+# Pydantic models
+class NotificationSettingsBase(BaseModel):
+    email_notifications: bool = True
+    push_notifications: bool = True
+    in_app_notifications: bool = True
+    low_stock_alerts: bool = True
+    order_updates: bool = True
+    system_alerts: bool = True
+
+class NotificationSettingsResponse(NotificationSettingsBase):
+    id: int
+    user_id: int
+
+    class Config:
+        from_attributes = True
+
+# Routes
+@router.get("/notification-settings", response_model=NotificationSettingsResponse)
+async def get_notification_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    settings = NotificationSetting.get_or_create(current_user.id)
+    return settings
+
+@router.put("/notification-settings", response_model=NotificationSettingsResponse)
+async def update_notification_settings(
+    settings_update: Dict[str, Any],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    settings = NotificationSetting.get_or_create(current_user.id)
     
     # Validate settings data
-    if not isinstance(data, dict):
-        return jsonify({
-            'error': 'Invalid settings data'
-        }), 400
+    if not isinstance(settings_update, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid settings data"
+        )
     
     # Update settings
-    settings.update_from_dict(data)
-    db.session.commit()
+    settings.update_from_dict(settings_update)
+    db.commit()
+    db.refresh(settings)
     
-    return jsonify({
-        'message': 'Notification settings updated successfully',
-        'settings': settings.to_dict()
-    })
+    return settings
 
-@notification_settings_bp.route('/api/notification-settings/reset', methods=['POST'])
-@jwt_required()
-def reset_notification_settings():
-    current_user_id = get_jwt_identity()
-    settings = NotificationSetting.get_or_create(current_user_id)
+@router.post("/notification-settings/reset", response_model=NotificationSettingsResponse)
+async def reset_notification_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    settings = NotificationSetting.get_or_create(current_user.id)
     
     # Reset to default values
     settings.email_notifications = True
@@ -48,9 +71,7 @@ def reset_notification_settings():
     settings.order_updates = True
     settings.system_alerts = True
     
-    db.session.commit()
+    db.commit()
+    db.refresh(settings)
     
-    return jsonify({
-        'message': 'Notification settings reset to defaults',
-        'settings': settings.to_dict()
-    }) 
+    return settings 

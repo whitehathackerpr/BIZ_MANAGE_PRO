@@ -3,10 +3,11 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 from flask_restx import Namespace, Resource, fields
 from app.models import User
 from app import db
-from datetime import timedelta
+from datetime import timedelta, datetime
 from app.utils.auth import generate_password_reset_token, verify_password_reset_token
 from app.utils.email import send_password_reset_email
 from app.utils.rate_limiting import rate_limit
+from flask_login import login_user, logout_user, login_required, current_user
 
 # Create namespace
 ns = Namespace('auth', description='Authentication operations')
@@ -31,58 +32,100 @@ token_model = ns.model('Token', {
     'expires_in': fields.Integer(description='Token expiration time in seconds')
 })
 
-@ns.route('/login')
-class Login(Resource):
-    @ns.expect(login_model)
-    @ns.response(200, 'Success')
-    @ns.response(401, 'Invalid credentials')
-    @rate_limit(5, 60)  # 5 attempts per minute
-    def post(self):
-        """User login endpoint"""
-        data = request.get_json()
-        user = User.query.filter_by(email=data.get('email')).first()
-        
-        if user and user.check_password(data.get('password')):
-            access_token = create_access_token(
-                identity=user.id,
-                expires_delta=timedelta(hours=1)
-            )
-            return {
-                'access_token': access_token,
-                'token_type': 'bearer',
-                'expires_in': 3600
-            }, 200
-        return {'message': 'Invalid credentials'}, 401
+bp = Blueprint('auth', __name__)
 
-@ns.route('/register')
-class Register(Resource):
-    @ns.expect(register_model)
-    @ns.response(201, 'User created successfully')
-    @ns.response(400, 'Validation error')
-    @ns.response(409, 'User already exists')
-    @rate_limit(3, 60)  # 3 attempts per minute
-    def post(self):
-        """User registration endpoint"""
-        data = request.get_json()
+@bp.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    
+    if User.query.filter_by(email=data['email']).first():
+        return jsonify({'error': 'Email already registered'}), 400
         
-        if User.query.filter_by(email=data.get('email')).first():
-            return {'message': 'Email already registered'}, 409
+    if User.query.filter_by(username=data['username']).first():
+        return jsonify({'error': 'Username already taken'}), 400
+    
+    user = User(
+        username=data['username'],
+        email=data['email'],
+        role=data.get('role', 'user')
+    )
+    user.set_password(data['password'])
+    
+    db.session.add(user)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'User registered successfully',
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'role': user.role
+        }
+    }), 201
+
+@bp.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(email=data['email']).first()
+    
+    if user and user.check_password(data['password']):
+        if not user.is_active:
+            return jsonify({'error': 'Account is deactivated'}), 403
             
-        if User.query.filter_by(username=data.get('username')).first():
-            return {'message': 'Username already taken'}, 409
-            
-        user = User(
-            username=data.get('username'),
-            email=data.get('email'),
-            first_name=data.get('first_name'),
-            last_name=data.get('last_name')
-        )
-        user.set_password(data.get('password'))
-        
-        db.session.add(user)
+        login_user(user)
+        user.last_login = datetime.utcnow()
         db.session.commit()
         
-        return {'message': 'User registered successfully'}, 201
+        access_token = create_access_token(identity=user.id)
+        
+        return jsonify({
+            'access_token': access_token,
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'role': user.role
+            }
+        })
+    
+    return jsonify({'error': 'Invalid email or password'}), 401
+
+@bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    current_user_id = get_jwt_identity()
+    logout_user()
+    return jsonify({'message': 'Successfully logged out'})
+
+@bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    return jsonify({
+        'id': user.id,
+        'username': user.username,
+        'email': user.email,
+        'role': user.role,
+        'last_login': user.last_login.isoformat() if user.last_login else None
+    })
+
+@bp.route('/change-password', methods=['POST'])
+@jwt_required()
+def change_password():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    data = request.get_json()
+    
+    if not user.check_password(data['current_password']):
+        return jsonify({'error': 'Current password is incorrect'}), 400
+        
+    user.set_password(data['new_password'])
+    db.session.commit()
+    
+    return jsonify({'message': 'Password updated successfully'})
 
 @ns.route('/refresh')
 class TokenRefresh(Resource):
@@ -102,17 +145,6 @@ class TokenRefresh(Resource):
             'token_type': 'bearer',
             'expires_in': 3600
         }, 200
-
-@ns.route('/logout')
-class Logout(Resource):
-    @ns.doc(security='Bearer')
-    @ns.response(200, 'Success')
-    @ns.response(401, 'Invalid token')
-    @jwt_required()
-    def post(self):
-        """User logout endpoint"""
-        # In a real application, you might want to blacklist the token
-        return {'message': 'Successfully logged out'}, 200
 
 @ns.route('/forgot-password')
 class ForgotPassword(Resource):

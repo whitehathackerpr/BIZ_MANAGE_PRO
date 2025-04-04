@@ -1,199 +1,265 @@
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
-from ..models import Role, Permission
-from ..extensions import db
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import List, Optional
+from pydantic import BaseModel
+from datetime import datetime
+from sqlalchemy import or_
+
+from ..models import Role, Permission, Employee, EmployeeTimeLog, User
+from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.validation import validate_role_data
 
-roles_bp = Blueprint('roles', __name__)
+router = APIRouter()
 
-@roles_bp.route('/api/roles', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_roles():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    search = request.args.get('search', '')
-    
-    query = Role.query
+# Pydantic models
+class RoleBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_system: bool = False
+
+class RoleCreate(RoleBase):
+    permission_ids: Optional[List[int]] = None
+
+class RoleResponse(RoleBase):
+    id: int
+    created_at: datetime
+    permissions: List[Permission]
+
+    class Config:
+        from_attributes = True
+
+class PermissionBase(BaseModel):
+    name: str
+    description: str
+    category: str = "general"
+
+class PermissionResponse(PermissionBase):
+    id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TimeLogBase(BaseModel):
+    check_in: datetime
+    check_out: Optional[datetime] = None
+    notes: Optional[str] = None
+
+# Routes
+@router.get("/roles", response_model=List[RoleResponse])
+async def get_roles(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(""),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    query = db.query(Role)
     
     if search:
         query = query.filter(Role.name.ilike(f'%{search}%'))
     
-    roles = query.order_by(Role.name.asc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    roles = query.order_by(Role.name.asc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
     
-    return jsonify({
-        'roles': [role.to_dict() for role in roles.items],
-        'total': roles.total,
-        'pages': roles.pages,
-        'current_page': roles.page
-    })
+    return roles
 
-@roles_bp.route('/api/roles', methods=['POST'])
-@jwt_required()
-@admin_required
-def create_role():
-    data = request.get_json()
-    
+@router.post("/roles", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
+async def create_role(
+    role: RoleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
     # Validate role data
-    errors = validate_role_data(data)
+    errors = validate_role_data(role.dict())
     if errors:
-        return jsonify({'errors': errors}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=errors
+        )
     
     # Check if role name already exists
-    if Role.query.filter_by(name=data['name']).first():
-        return jsonify({
-            'error': 'Role name already exists'
-        }), 400
+    if db.query(Role).filter_by(name=role.name).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Role name already exists"
+        )
     
     # Create role
-    role = Role(
-        name=data['name'],
-        description=data.get('description'),
-        is_system=data.get('is_system', False)
+    db_role = Role(
+        name=role.name,
+        description=role.description,
+        is_system=role.is_system
     )
     
     # Add permissions
-    if 'permission_ids' in data:
-        permissions = Permission.query.filter(
-            Permission.id.in_(data['permission_ids'])
+    if role.permission_ids:
+        permissions = db.query(Permission).filter(
+            Permission.id.in_(role.permission_ids)
         ).all()
-        role.permissions = permissions
+        db_role.permissions = permissions
     
-    db.session.add(role)
-    db.session.commit()
+    db.add(db_role)
+    db.commit()
+    db.refresh(db_role)
     
-    return jsonify({
-        'message': 'Role created successfully',
-        'role': role.to_dict()
-    }), 201
+    return db_role
 
-@roles_bp.route('/api/roles/<int:id>', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_role(id):
-    role = Role.query.get_or_404(id)
-    return jsonify(role.to_dict())
+@router.get("/roles/{role_id}", response_model=RoleResponse)
+async def get_role(
+    role_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    role = db.query(Role).get(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+    return role
 
-@roles_bp.route('/api/roles/<int:id>', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_role(id):
-    role = Role.query.get_or_404(id)
+@router.put("/roles/{role_id}", response_model=RoleResponse)
+async def update_role(
+    role_id: int,
+    role_update: RoleBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    db_role = db.query(Role).get(role_id)
+    if not db_role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
     
     # Prevent modifying system roles
-    if role.is_system:
-        return jsonify({
-            'error': 'Cannot modify system roles'
-        }), 400
-    
-    data = request.get_json()
+    if db_role.is_system:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify system roles"
+        )
     
     # Validate role data
-    errors = validate_role_data(data, partial=True)
+    errors = validate_role_data(role_update.dict(), partial=True)
     if errors:
-        return jsonify({'errors': errors}), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=errors
+        )
     
     # Update role fields
-    if 'name' in data and data['name'] != role.name:
-        if Role.query.filter_by(name=data['name']).first():
-            return jsonify({
-                'error': 'Role name already exists'
-            }), 400
-        role.name = data['name']
+    if role_update.name != db_role.name:
+        if db.query(Role).filter_by(name=role_update.name).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Role name already exists"
+            )
+        db_role.name = role_update.name
     
-    if 'description' in data:
-        role.description = data['description']
+    if role_update.description is not None:
+        db_role.description = role_update.description
     
-    # Update permissions
-    if 'permission_ids' in data:
-        permissions = Permission.query.filter(
-            Permission.id.in_(data['permission_ids'])
-        ).all()
-        role.permissions = permissions
+    db.commit()
+    db.refresh(db_role)
     
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Role updated successfully',
-        'role': role.to_dict()
-    })
+    return db_role
 
-@roles_bp.route('/api/roles/<int:id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
-def delete_role(id):
-    role = Role.query.get_or_404(id)
+@router.delete("/roles/{role_id}")
+async def delete_role(
+    role_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    role = db.query(Role).get(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
     
     # Prevent deleting system roles
     if role.is_system:
-        return jsonify({
-            'error': 'Cannot delete system roles'
-        }), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete system roles"
+        )
     
     # Check if role is assigned to any users
     if role.users:
-        return jsonify({
-            'error': 'Cannot delete role that is assigned to users'
-        }), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete role that is assigned to users"
+        )
     
-    db.session.delete(role)
-    db.session.commit()
+    db.delete(role)
+    db.commit()
     
-    return jsonify({
-        'message': 'Role deleted successfully'
-    })
+    return {"message": "Role deleted successfully"}
 
-@roles_bp.route('/api/roles/<int:id>/permissions', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_role_permissions(id):
-    role = Role.query.get_or_404(id)
-    return jsonify({
-        'permissions': [permission.to_dict() for permission in role.permissions]
-    })
+@router.get("/roles/{role_id}/permissions", response_model=List[PermissionResponse])
+async def get_role_permissions(
+    role_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    role = db.query(Role).get(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
+    return role.permissions
 
-@roles_bp.route('/api/roles/<int:id>/permissions', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_role_permissions(id):
-    role = Role.query.get_or_404(id)
+@router.put("/roles/{role_id}/permissions")
+async def update_role_permissions(
+    role_id: int,
+    permission_ids: List[int],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    role = db.query(Role).get(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Role not found"
+        )
     
     # Prevent modifying system roles
     if role.is_system:
-        return jsonify({
-            'error': 'Cannot modify system roles'
-        }), 400
-    
-    data = request.get_json()
-    permission_ids = data.get('permission_ids', [])
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot modify system roles"
+        )
     
     # Get permissions
-    permissions = Permission.query.filter(
+    permissions = db.query(Permission).filter(
         Permission.id.in_(permission_ids)
     ).all()
     
     # Update role permissions
     role.permissions = permissions
-    db.session.commit()
+    db.commit()
     
-    return jsonify({
-        'message': 'Role permissions updated successfully',
-        'permissions': [permission.to_dict() for permission in permissions]
-    })
+    return {
+        "message": "Role permissions updated successfully",
+        "permissions": permissions
+    }
 
-@roles_bp.route('/api/permissions', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_permissions():
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    search = request.args.get('search', '')
-    category = request.args.get('category')
-    
-    query = Permission.query
+@router.get("/permissions", response_model=List[PermissionResponse])
+async def get_permissions(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(""),
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    query = db.query(Permission)
     
     if search:
         query = query.filter(
@@ -205,99 +271,171 @@ def get_permissions():
     if category:
         query = query.filter_by(category=category)
     
-    permissions = query.order_by(Permission.name.asc()).paginate(
-        page=page, per_page=per_page, error_out=False
-    )
+    permissions = query.order_by(Permission.name.asc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
     
-    return jsonify({
-        'permissions': [permission.to_dict() for permission in permissions.items],
-        'total': permissions.total,
-        'pages': permissions.pages,
-        'current_page': permissions.page
-    })
+    return permissions
 
-@roles_bp.route('/api/permissions', methods=['POST'])
-@jwt_required()
-@admin_required
-def create_permission():
-    data = request.get_json()
-    
-    # Validate permission data
-    if not data.get('name') or not data.get('description'):
-        return jsonify({
-            'error': 'Name and description are required'
-        }), 400
-    
+@router.post("/permissions", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED)
+async def create_permission(
+    permission: PermissionBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
     # Check if permission name already exists
-    if Permission.query.filter_by(name=data['name']).first():
-        return jsonify({
-            'error': 'Permission name already exists'
-        }), 400
+    if db.query(Permission).filter_by(name=permission.name).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Permission name already exists"
+        )
     
     # Create permission
-    permission = Permission(
-        name=data['name'],
-        description=data['description'],
-        category=data.get('category', 'general')
+    db_permission = Permission(
+        name=permission.name,
+        description=permission.description,
+        category=permission.category
     )
     
-    db.session.add(permission)
-    db.session.commit()
+    db.add(db_permission)
+    db.commit()
+    db.refresh(db_permission)
     
-    return jsonify({
-        'message': 'Permission created successfully',
-        'permission': permission.to_dict()
-    }), 201
+    return db_permission
 
-@roles_bp.route('/api/permissions/<int:id>', methods=['GET'])
-@jwt_required()
-@admin_required
-def get_permission(id):
-    permission = Permission.query.get_or_404(id)
-    return jsonify(permission.to_dict())
+@router.get("/permissions/{permission_id}", response_model=PermissionResponse)
+async def get_permission(
+    permission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    permission = db.query(Permission).get(permission_id)
+    if not permission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Permission not found"
+        )
+    return permission
 
-@roles_bp.route('/api/permissions/<int:id>', methods=['PUT'])
-@jwt_required()
-@admin_required
-def update_permission(id):
-    permission = Permission.query.get_or_404(id)
-    data = request.get_json()
+@router.put("/permissions/{permission_id}", response_model=PermissionResponse)
+async def update_permission(
+    permission_id: int,
+    permission_update: PermissionBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    db_permission = db.query(Permission).get(permission_id)
+    if not db_permission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Permission not found"
+        )
     
     # Update permission fields
-    if 'name' in data and data['name'] != permission.name:
-        if Permission.query.filter_by(name=data['name']).first():
-            return jsonify({
-                'error': 'Permission name already exists'
-            }), 400
-        permission.name = data['name']
+    if permission_update.name != db_permission.name:
+        if db.query(Permission).filter_by(name=permission_update.name).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Permission name already exists"
+            )
+        db_permission.name = permission_update.name
     
-    if 'description' in data:
-        permission.description = data['description']
-    if 'category' in data:
-        permission.category = data['category']
+    db_permission.description = permission_update.description
+    db_permission.category = permission_update.category
     
-    db.session.commit()
+    db.commit()
+    db.refresh(db_permission)
     
-    return jsonify({
-        'message': 'Permission updated successfully',
-        'permission': permission.to_dict()
-    })
+    return db_permission
 
-@roles_bp.route('/api/permissions/<int:id>', methods=['DELETE'])
-@jwt_required()
-@admin_required
-def delete_permission(id):
-    permission = Permission.query.get_or_404(id)
+@router.delete("/permissions/{permission_id}")
+async def delete_permission(
+    permission_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_required())
+):
+    permission = db.query(Permission).get(permission_id)
+    if not permission:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Permission not found"
+        )
     
-    # Check if permission is assigned to any roles
-    if permission.roles:
-        return jsonify({
-            'error': 'Cannot delete permission that is assigned to roles'
-        }), 400
+    db.delete(permission)
+    db.commit()
     
-    db.session.delete(permission)
-    db.session.commit()
+    return {"message": "Permission deleted successfully"}
+
+@router.post("/employees/{employee_id}/time-logs", response_model=TimeLogBase)
+async def check_in(
+    employee_id: int,
+    time_log: TimeLogBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    employee = db.query(Employee).get(employee_id)
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
+        )
     
-    return jsonify({
-        'message': 'Permission deleted successfully'
-    }) 
+    # Create time log
+    db_time_log = EmployeeTimeLog(
+        employee_id=employee_id,
+        check_in=time_log.check_in,
+        notes=time_log.notes
+    )
+    
+    db.add(db_time_log)
+    db.commit()
+    db.refresh(db_time_log)
+    
+    return db_time_log
+
+@router.post("/employees/{employee_id}/time-logs/{log_id}/check-out")
+async def check_out(
+    employee_id: int,
+    log_id: int,
+    check_out_time: datetime,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    time_log = db.query(EmployeeTimeLog).get(log_id)
+    if not time_log or time_log.employee_id != employee_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Time log not found"
+        )
+    
+    time_log.check_out = check_out_time
+    db.commit()
+    
+    return {"message": "Check-out recorded successfully"}
+
+@router.get("/employees/{employee_id}/time-logs", response_model=List[TimeLogBase])
+async def get_time_logs(
+    employee_id: int,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    employee = db.query(Employee).get(employee_id)
+    if not employee:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Employee not found"
+        )
+    
+    query = db.query(EmployeeTimeLog).filter_by(employee_id=employee_id)
+    
+    if start_date:
+        query = query.filter(EmployeeTimeLog.check_in >= start_date)
+    if end_date:
+        query = query.filter(EmployeeTimeLog.check_in <= end_date)
+    
+    time_logs = query.order_by(EmployeeTimeLog.check_in.desc()).all()
+    
+    return time_logs 

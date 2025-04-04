@@ -1,50 +1,139 @@
 import os
-from datetime import timedelta
+from typing import List, Optional
+from pydantic import BaseSettings, PostgresDsn, validator
+from dotenv import load_dotenv
 
-class Config:
-    # Basic Flask config
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'postgresql://postgres:752002@localhost:5432/biz_manage'
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+# Load environment variables
+load_dotenv()
 
-    # JWT config
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'jwt-secret-key'
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
+class Settings(BaseSettings):
+    # Application Settings
+    APP_NAME: str = "BIZ_MANAGE_PRO"
+    APP_ENV: str = "development"
+    DEBUG: bool = True
+    SECRET_KEY: str
+    API_V1_STR: str = "/api/v1"
 
-    # Redis config
-    REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
+    # Server Settings
+    HOST: str = "0.0.0.0"
+    PORT: int = 8000
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:5174"]
+    SSL_KEYFILE: Optional[str] = None
+    SSL_CERTFILE: Optional[str] = None
 
-    # CORS config
-    CORS_HEADERS = 'Content-Type'
+    # Database Settings
+    DATABASE_URL: PostgresDsn
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 10
 
-    # Upload config
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    # Redis Settings
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: Optional[str] = None
 
-    # Email config
-    MAIL_SERVER = os.environ.get('MAIL_SERVER')
-    MAIL_PORT = int(os.environ.get('MAIL_PORT') or 587)
-    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS') is not None
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER')
+    # JWT Settings
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    # Logging config
-    LOG_TO_STDOUT = os.environ.get('LOG_TO_STDOUT')
-    LOG_LEVEL = os.environ.get('LOG_LEVEL') or 'INFO'
-    LOG_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    LOG_FILE = os.environ.get('LOG_FILE') or 'app.log'
+    # Email Settings
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_USER: str
+    SMTP_PASSWORD: str
+    EMAIL_FROM: str
+    EMAIL_TEMPLATES_DIR: str = "app/email-templates"
 
-    # Rate limiting
-    RATELIMIT_ENABLED = True
-    RATELIMIT_STORAGE_URL = REDIS_URL
-    RATELIMIT_STRATEGY = 'fixed-window'
-    RATELIMIT_DEFAULT = "100 per minute"
+    # File Upload Settings
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE: int = 10485760  # 10MB
+    ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"]
 
-    # WebSocket config
-    SOCKETIO_MESSAGE_QUEUE = os.environ.get('SOCKETIO_MESSAGE_QUEUE', 'redis://')
+    # Logging Settings
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_FILE: str = "logs/app.log"
 
-    # CORS config
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',') 
+    # Monitoring Settings
+    PROMETHEUS_METRICS_PORT: int = 9090
+    ENABLE_METRICS: bool = True
+
+    # Security Settings
+    CORS_ORIGINS: List[str]
+    RATE_LIMIT_PER_MINUTE: int = 60
+    SESSION_SECRET_KEY: str
+    ENABLE_HTTPS: bool = False
+
+    # Feature Flags
+    ENABLE_WEBSOCKET: bool = True
+    ENABLE_CACHING: bool = True
+    ENABLE_ANALYTICS: bool = True
+    ENABLE_NOTIFICATIONS: bool = True
+
+    # External Services
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    FACEBOOK_CLIENT_ID: Optional[str] = None
+    FACEBOOK_CLIENT_SECRET: Optional[str] = None
+
+    # Backup Settings
+    BACKUP_DIR: str = "backups"
+    BACKUP_SCHEDULE: str = "0 0 * * *"  # Daily at midnight
+    BACKUP_RETENTION_DAYS: int = 7
+
+    # Cache Settings
+    CACHE_TTL: int = 3600  # 1 hour
+    CACHE_MAX_SIZE: int = 1000
+    CACHE_STRATEGY: str = "LRU"
+
+    # Analytics Settings
+    ANALYTICS_ENABLED: bool = True
+    ANALYTICS_SAMPLE_RATE: float = 1.0
+    ANALYTICS_BATCH_SIZE: int = 100
+
+    # Notification Settings
+    NOTIFICATION_QUEUE_SIZE: int = 1000
+    NOTIFICATION_BATCH_SIZE: int = 100
+    NOTIFICATION_RETRY_ATTEMPTS: int = 3
+    NOTIFICATION_RETRY_DELAY: int = 5
+
+    # WebSocket Settings
+    WEBSOCKET_PING_INTERVAL: int = 20
+    WEBSOCKET_PING_TIMEOUT: int = 20
+    WEBSOCKET_MAX_SIZE: int = 1048576  # 1MB
+
+    @validator("ALLOWED_ORIGINS", "CORS_ORIGINS", pre=True)
+    def parse_allowed_origins(cls, v):
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",")]
+        return v
+
+    @validator("ALLOWED_EXTENSIONS", pre=True)
+    def parse_allowed_extensions(cls, v):
+        if isinstance(v, str):
+            return [i.strip() for i in v.split(",")]
+        return v
+    
+    class Config:
+        case_sensitive = True
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+# Create settings instance
+settings = Settings() 
+
+# Create required directories
+def init_directories():
+    """Ensure required directories exist"""
+    directories = [
+        settings.UPLOAD_DIR,
+        settings.BACKUP_DIR,
+        os.path.dirname(settings.LOG_FILE),
+    ]
+    for directory in directories:
+        os.makedirs(directory, exist_ok=True)
+
+# Initialize directories
+init_directories() 

@@ -1,28 +1,48 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from ..db.base_class import Base
 
 # Association table for role-permission relationship
-role_permissions = db.Table('role_permissions',
-    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True),
-    db.Column('permission_id', db.Integer, db.ForeignKey('permissions.id'), primary_key=True)
+role_permissions = Table(
+    'role_permissions',
+    Base.metadata,
+    Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True),
+    Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
 )
 
-class Role(db.Model):
+# Association table for many-to-many relationship between users and roles
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True)
+)
+
+# Association table for role-permission many-to-many relationship
+role_permission = Table(
+    "role_permission",
+    Base.metadata,
+    Column("role_id", Integer, ForeignKey("role.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permission.id"), primary_key=True),
+)
+
+class Role(Base):
     """
     Role model for role-based access control.
     """
     __tablename__ = 'roles'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    description = db.Column(db.String(255))
-    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
-    updated_at = db.Column(db.DateTime, default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    created_at = Column(DateTime, default=func.current_timestamp())
+    updated_at = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
     
     # Relationships
-    users = db.relationship('User', backref='role', lazy=True)
-    permissions = db.relationship('Permission', secondary=role_permissions,
-                                backref=db.backref('roles', lazy=True))
+    users = relationship("User", secondary="user_role", back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permission, back_populates="roles")
     
     def __init__(self, name, description=None):
         self.name = name
@@ -41,10 +61,10 @@ class Role(db.Model):
             'description': self.description,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'permissions': [permission.to_dict() for permission in self.permissions]
+            'permissions': [permission.name for permission in self.permissions]
         }
     
-    def has_permission(self, permission_name):
+    def has_permission(self, permission_name: str) -> bool:
         """
         Check if role has a specific permission.
         
@@ -54,7 +74,7 @@ class Role(db.Model):
         Returns:
             bool: True if role has permission, False otherwise
         """
-        return any(p.name == permission_name for p in self.permissions)
+        return any(permission.name == permission_name for permission in self.permissions)
     
     def add_permission(self, permission):
         """
@@ -79,18 +99,18 @@ class Role(db.Model):
     def __repr__(self):
         return f'<Role {self.name}>'
 
-class Permission(db.Model):
+class Permission(Base):
     """
     Permission model for role-based access control.
     """
     __tablename__ = 'permissions'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False)
-    description = db.Column(db.String(200))
-    category = db.Column(db.String(50), default='general')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    description = Column(String(200))
+    category = Column(String(50), default='general')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __init__(self, name, description=None, category='general'):
         self.name = name

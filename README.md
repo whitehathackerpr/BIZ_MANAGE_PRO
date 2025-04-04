@@ -6,6 +6,9 @@ A modern, full-stack business management system with a Web3-inspired design, rea
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Python](https://img.shields.io/badge/python-3.12-blue.svg)
 ![React](https://img.shields.io/badge/react-18.2.0-blue.svg)
+![FastAPI](https://img.shields.io/badge/fastapi-0.109.2-green.svg)
+![PostgreSQL](https://img.shields.io/badge/postgresql-14-blue.svg)
+![Redis](https://img.shields.io/badge/redis-6-blue.svg)
 
 ## 🌟 Features
 
@@ -27,11 +30,14 @@ A modern, full-stack business management system with a Web3-inspired design, rea
 - 🔍 Full-text search
 - 📱 RESTful API with versioning
 - 🔒 Rate limiting and security features
+- 📝 API Documentation with Swagger UI
+- ⚡ High-performance with async support
 
 ## 🛠️ Tech Stack
 
 ### Frontend
 - React 18
+- Vite
 - Material-UI v5
 - React Query
 - Socket.IO Client
@@ -42,7 +48,7 @@ A modern, full-stack business management system with a Web3-inspired design, rea
 
 ### Backend
 - Python 3.12
-- Flask
+- FastAPI
 - SQLAlchemy
 - PostgreSQL
 - Redis
@@ -50,14 +56,22 @@ A modern, full-stack business management system with a Web3-inspired design, rea
 - WebSocket
 - Pandas & NumPy
 - scikit-learn
+- Pydantic
+- Uvicorn
+
+### Infrastructure
+- Docker
+- Docker Compose
+- Nginx
+- Prometheus
+- Grafana
+- pgAdmin
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 18+
-- PostgreSQL 14+
-- Redis 6+
+- Docker
+- Docker Compose
 - Git
 
 ### Installation
@@ -68,56 +82,47 @@ git clone https://github.com/yourusername/BIZ_MANAGE_PRO.git
 cd BIZ_MANAGE_PRO
 ```
 
-2. Set up the backend:
+2. Set up environment variables:
 ```bash
-# Create and activate virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Backend
+cp backend/.env.example backend/.env
+# Edit backend/.env with your configuration
 
-# Install dependencies
-cd backend
-pip install -r requirements.txt
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-
-# Initialize database
-python init_db.py
-
-# Run migrations
-flask db upgrade
+# Frontend
+cp frontend/.env.example frontend/.env
+# Edit frontend/.env with your configuration
 ```
 
-3. Set up the frontend:
+3. Start the application:
 ```bash
-# Install dependencies
-cd frontend
-npm install
-
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your configuration
-```
-
-### Running the Application
-
-1. Start the backend server:
-```bash
-cd backend
-python run.py
-```
-
-2. Start the frontend development server:
-```bash
-cd frontend
-npm run dev
+docker-compose up -d
 ```
 
 The application will be available at:
 - Frontend: http://localhost:5173
-- Backend API: http://localhost:5000
-- API Documentation: http://localhost:5000/api/docs
+- Backend API: http://localhost:8000
+- API Documentation: http://localhost:8000/docs
+- pgAdmin: http://localhost:5050
+- Prometheus: http://localhost:9090
+- Grafana: http://localhost:3000
+
+### Development
+
+1. Start the backend in development mode:
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python run.py
+```
+
+2. Start the frontend in development mode:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ## 📚 Documentation
 
@@ -150,7 +155,7 @@ The application will be available at:
 - Role-based access control (RBAC)
 - Rate limiting
 - CORS protection
-- Input validation
+- Input validation with Pydantic
 - SQL injection prevention
 - XSS protection
 - CSRF protection
@@ -183,8 +188,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
+- FastAPI team for the excellent web framework
 - Material-UI team for the amazing UI components
-- Flask team for the excellent web framework
 - React team for the powerful frontend library
 - All contributors who have helped shape this project
 

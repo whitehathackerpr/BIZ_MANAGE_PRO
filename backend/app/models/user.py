@@ -1,44 +1,46 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_login import UserMixin
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
 
-class User(UserMixin, db.Model):
+Base = declarative_base()
+
+# Association table for user-role many-to-many relationship
+user_role = Table(
+    "user_role",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("user.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("role.id"), primary_key=True),
+)
+
+class User(Base):
     """
     User model for authentication and user management.
     """
-    __tablename__ = 'users'
+    __tablename__ = 'user'
     
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(128))
-    first_name = db.Column(db.String(50))
-    last_name = db.Column(db.String(50))
-    is_active = db.Column(db.Boolean, default=True)
-    is_admin = db.Column(db.Boolean, default=False)
-    last_login = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String)
+    is_active = Column(Boolean, default=True)
+    is_superuser = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'))
-    profile = db.relationship('UserProfile', backref='user', uselist=False)
-    notifications = db.relationship('Notification', backref='user', lazy=True)
+    roles = relationship("Role", secondary=user_role, back_populates="users")
+    profile = relationship('UserProfile', backref='user', uselist=False)
+    notifications = relationship('Notification', backref='user', lazy='dynamic')
     
-    def __init__(self, username, email, password=None, first_name=None, last_name=None,
-                 is_active=True, is_admin=False, role=None):
-        self.username = username
+    def __init__(self, email, password=None, full_name=None, is_active=True, is_superuser=False):
         self.email = email
         if password:
             self.set_password(password)
-        self.first_name = first_name
-        self.last_name = last_name
+        self.full_name = full_name
         self.is_active = is_active
-        self.is_admin = is_admin
-        if role:
-            self.role = role
+        self.is_superuser = is_superuser
     
     def set_password(self, password):
         """
@@ -47,7 +49,7 @@ class User(UserMixin, db.Model):
         Args:
             password (str): Password to set
         """
-        self.password_hash = generate_password_hash(password)
+        self.hashed_password = generate_password_hash(password)
     
     def check_password(self, password):
         """
@@ -59,11 +61,11 @@ class User(UserMixin, db.Model):
         Returns:
             bool: True if password matches, False otherwise
         """
-        return check_password_hash(self.password_hash, password)
+        return check_password_hash(self.hashed_password, password)
     
     def get_id(self):
         """
-        Get user ID for Flask-Login.
+        Get user ID.
         
         Returns:
             str: User ID
@@ -80,9 +82,9 @@ class User(UserMixin, db.Model):
         Returns:
             bool: True if user has permission, False otherwise
         """
-        if self.is_admin:
+        if self.is_superuser:
             return True
-        return self.role and self.role.has_permission(permission_name)
+        return self.roles and any(role.has_permission(permission_name) for role in self.roles)
     
     def to_dict(self):
         """
@@ -93,43 +95,40 @@ class User(UserMixin, db.Model):
         """
         return {
             'id': self.id,
-            'username': self.username,
             'email': self.email,
-            'first_name': self.first_name,
-            'last_name': self.last_name,
+            'full_name': self.full_name,
             'is_active': self.is_active,
-            'is_admin': self.is_admin,
-            'last_login': self.last_login.isoformat() if self.last_login else None,
+            'is_superuser': self.is_superuser,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'role': self.role.to_dict() if self.role else None,
+            'roles': [role.to_dict() for role in self.roles],
             'profile': self.profile.to_dict() if self.profile else None
         }
     
-    def update_last_login(self):
+    def update_last_login(self, session):
         """
         Update user's last login timestamp.
         """
-        self.last_login = datetime.utcnow()
-        db.session.commit()
+        self.updated_at = datetime.utcnow()
+        session.commit()
     
     def __repr__(self):
-        return f'<User {self.username}>'
+        return f'<User {self.email}>'
 
-class UserProfile(db.Model):
+class UserProfile(Base):
     """
     User profile model for additional user information.
     """
     __tablename__ = 'user_profiles'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True)
-    phone = db.Column(db.String(20))
-    address = db.Column(db.String(200))
-    avatar = db.Column(db.String(200))
-    bio = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'), unique=True)
+    phone = Column(String(20))
+    address = Column(String(200))
+    avatar = Column(String(200))
+    bio = Column(String(500))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
         """
@@ -148,18 +147,18 @@ class UserProfile(db.Model):
             'updated_at': self.updated_at.isoformat()
         }
 
-class Notification(db.Model):
+class Notification(Base):
     """
     Notification model for user notifications.
     """
     __tablename__ = 'notifications'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    title = db.Column(db.String(100), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('user.id'))
+    title = Column(String(100), nullable=False)
+    message = Column(String(500), nullable=False)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     def to_dict(self):
         """
@@ -176,9 +175,9 @@ class Notification(db.Model):
             'created_at': self.created_at.isoformat()
         }
     
-    def mark_as_read(self):
+    def mark_as_read(self, session):
         """
         Mark notification as read.
         """
         self.is_read = True
-        db.session.commit() 
+        session.commit() 

@@ -1,208 +1,238 @@
-from flask import Blueprint, jsonify, request, current_app
-from werkzeug.utils import secure_filename
-import os
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from ..utils.auth import get_current_user
+from sqlalchemy.orm import Session
+from typing import Optional
+from pydantic import BaseModel
 from datetime import datetime
-from app.models import db, User, Business, SystemSetting
-from app.utils.auth import login_required, get_current_user
-from app.utils.email import send_email
+import os
+from werkzeug.utils import secure_filename
 
-settings_bp = Blueprint('settings', __name__)
+from ..models import User, Business, SystemSetting
+from ..extensions import get_db
+from ..utils.email import send_email
 
-@settings_bp.route('/users/me', methods=['GET'])
-@login_required
-def get_user_profile():
+router = APIRouter()
+
+# Pydantic models
+class UserProfileBase(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    current_password: Optional[str] = None
+    new_password: Optional[str] = None
+
+class UserProfileResponse(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class BusinessSettingsBase(BaseModel):
+    business_name: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    country: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    tax_id: Optional[str] = None
+    currency: Optional[str] = None
+    timezone: Optional[str] = None
+
+class BusinessSettingsResponse(BusinessSettingsBase):
+    pass
+
+class SystemSettingsBase(BaseModel):
+    dark_mode: Optional[bool] = None
+    email_notifications: Optional[bool] = None
+    two_factor_auth: Optional[bool] = None
+
+class SystemSettingsResponse(SystemSettingsBase):
+    pass
+
+# Routes
+@router.get("/users/me", response_model=UserProfileResponse)
+async def get_user_profile(
+    current_user: User = Depends(get_current_user)
+):
+    return current_user
+
+@router.put("/users/me", response_model=UserProfileResponse)
+async def update_user_profile(
+    profile_update: UserProfileBase,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Update basic info
+    if profile_update.first_name is not None:
+        current_user.first_name = profile_update.first_name
+    if profile_update.last_name is not None:
+        current_user.last_name = profile_update.last_name
+    if profile_update.email is not None:
+        if db.query(User).filter(User.email == profile_update.email).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        current_user.email = profile_update.email
+    if profile_update.phone is not None:
+        current_user.phone = profile_update.phone
+
+    # Handle password change if provided
+    if profile_update.current_password and profile_update.new_password:
+        if not current_user.check_password(profile_update.current_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect"
+            )
+        current_user.set_password(profile_update.new_password)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@router.post("/users/avatar")
+async def upload_avatar(
+    avatar: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not avatar.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No file selected"
+        )
+
+    if not allowed_file(avatar.filename):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type"
+        )
+
     try:
-        user = get_current_user()
-        return jsonify({
-            'id': user.id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'email': user.email,
-            'phone': user.phone,
-            'avatar_url': user.avatar_url,
-            'created_at': user.created_at.isoformat()
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/users/me', methods=['PUT'])
-@login_required
-def update_user_profile():
-    try:
-        user = get_current_user()
-        data = request.get_json()
-
-        # Update basic info
-        user.first_name = data.get('first_name', user.first_name)
-        user.last_name = data.get('last_name', user.last_name)
-        user.email = data.get('email', user.email)
-        user.phone = data.get('phone', user.phone)
-
-        # Handle password change if provided
-        if data.get('current_password') and data.get('new_password'):
-            if user.check_password(data['current_password']):
-                user.set_password(data['new_password'])
-            else:
-                return jsonify({'error': 'Current password is incorrect'}), 400
-
-        db.session.commit()
-        return jsonify({'message': 'Profile updated successfully'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/users/avatar', methods=['POST'])
-@login_required
-def upload_avatar():
-    try:
-        if 'avatar' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-
-        file = request.files['avatar']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            unique_filename = f"{timestamp}_{filename}"
-            
-            # Ensure upload directory exists
-            upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'avatars')
-            os.makedirs(upload_dir, exist_ok=True)
-            
-            file_path = os.path.join(upload_dir, unique_filename)
-            file.save(file_path)
-            
-            # Update user's avatar URL
-            user = get_current_user()
-            user.avatar_url = f"/uploads/avatars/{unique_filename}"
-            db.session.commit()
-            
-            return jsonify({
-                'message': 'Avatar uploaded successfully',
-                'avatar_url': user.avatar_url
-            })
-        else:
-            return jsonify({'error': 'Invalid file type'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/business', methods=['GET'])
-@login_required
-def get_business_settings():
-    try:
-        business = Business.query.first()
-        if not business:
-            return jsonify({'error': 'Business settings not found'}), 404
-            
-        return jsonify({
-            'business_name': business.name,
-            'address': business.address,
-            'city': business.city,
-            'state': business.state,
-            'zip_code': business.zip_code,
-            'country': business.country,
-            'phone': business.phone,
-            'email': business.email,
-            'tax_id': business.tax_id,
-            'currency': business.currency,
-            'timezone': business.timezone
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/business', methods=['PUT'])
-@login_required
-def update_business_settings():
-    try:
-        business = Business.query.first()
-        if not business:
-            business = Business()
-            db.session.add(business)
-
-        data = request.get_json()
-        business.name = data.get('business_name', business.name)
-        business.address = data.get('address', business.address)
-        business.city = data.get('city', business.city)
-        business.state = data.get('state', business.state)
-        business.zip_code = data.get('zip_code', business.zip_code)
-        business.country = data.get('country', business.country)
-        business.phone = data.get('phone', business.phone)
-        business.email = data.get('email', business.email)
-        business.tax_id = data.get('tax_id', business.tax_id)
-        business.currency = data.get('currency', business.currency)
-        business.timezone = data.get('timezone', business.timezone)
-
-        db.session.commit()
-        return jsonify({'message': 'Business settings updated successfully'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/system', methods=['GET'])
-@login_required
-def get_system_settings():
-    try:
-        user = get_current_user()
-        settings = SystemSetting.query.filter_by(user_id=user.id).first()
-        if not settings:
-            settings = SystemSetting(user_id=user.id)
-            db.session.add(settings)
-            db.session.commit()
-
-        return jsonify({
-            'dark_mode': settings.dark_mode,
-            'email_notifications': settings.email_notifications,
-            'two_factor_auth': settings.two_factor_auth
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/system', methods=['PUT'])
-@login_required
-def update_system_settings():
-    try:
-        user = get_current_user()
-        settings = SystemSetting.query.filter_by(user_id=user.id).first()
-        if not settings:
-            settings = SystemSetting(user_id=user.id)
-            db.session.add(settings)
-
-        data = request.get_json()
-        settings.dark_mode = data.get('dark_mode', settings.dark_mode)
-        settings.email_notifications = data.get('email_notifications', settings.email_notifications)
-        settings.two_factor_auth = data.get('two_factor_auth', settings.two_factor_auth)
-
-        db.session.commit()
-        return jsonify({'message': 'System settings updated successfully'})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
-
-@settings_bp.route('/users/me', methods=['DELETE'])
-@login_required
-def delete_account():
-    try:
-        user = get_current_user()
+        filename = secure_filename(avatar.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        unique_filename = f"{timestamp}_{filename}"
         
+        # Ensure upload directory exists
+        upload_dir = os.path.join("uploads", "avatars")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        file_path = os.path.join(upload_dir, unique_filename)
+        with open(file_path, "wb") as buffer:
+            content = await avatar.read()
+            buffer.write(content)
+        
+        # Update user's avatar URL
+        current_user.avatar_url = f"/uploads/avatars/{unique_filename}"
+        db.commit()
+        
+        return {
+            "message": "Avatar uploaded successfully",
+            "avatar_url": current_user.avatar_url
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/business", response_model=BusinessSettingsResponse)
+async def get_business_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    business = db.query(Business).first()
+    if not business:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Business settings not found"
+        )
+    return business
+
+@router.put("/business", response_model=BusinessSettingsResponse)
+async def update_business_settings(
+    settings_update: BusinessSettingsBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    business = db.query(Business).first()
+    if not business:
+        business = Business()
+        db.add(business)
+
+    for key, value in settings_update.dict(exclude_unset=True).items():
+        setattr(business, key, value)
+
+    db.commit()
+    db.refresh(business)
+    return business
+
+@router.get("/system", response_model=SystemSettingsResponse)
+async def get_system_settings(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    settings = db.query(SystemSetting).filter_by(user_id=current_user.id).first()
+    if not settings:
+        settings = SystemSetting(user_id=current_user.id)
+        db.add(settings)
+        db.commit()
+
+    return settings
+
+@router.put("/system", response_model=SystemSettingsResponse)
+async def update_system_settings(
+    settings_update: SystemSettingsBase,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    settings = db.query(SystemSetting).filter_by(user_id=current_user.id).first()
+    if not settings:
+        settings = SystemSetting(user_id=current_user.id)
+        db.add(settings)
+
+    for key, value in settings_update.dict(exclude_unset=True).items():
+        setattr(settings, key, value)
+
+    db.commit()
+    db.refresh(settings)
+    return settings
+
+@router.delete("/users/me")
+async def delete_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
         # Send confirmation email
-        send_email(
+        await send_email(
             subject="Account Deletion Confirmation",
-            recipients=[user.email],
+            recipients=[current_user.email],
             body="Your account has been successfully deleted. We're sorry to see you go!"
         )
         
         # Delete user's data
-        db.session.delete(user)
-        db.session.commit()
+        db.delete(current_user)
+        db.commit()
         
-        return jsonify({'message': 'Account deleted successfully'})
+        return {"message": "Account deleted successfully"}
     except Exception as e:
-        db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-def allowed_file(filename):
+def allowed_file(filename: str) -> bool:
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS 

@@ -13,8 +13,7 @@ from .transaction import Transaction, TransactionCategory
 from .settings import Business, SystemSetting
 from .notification import Notification, NotificationSetting
 
-# Import db after all models to avoid circular imports
-from ..extensions import db
+# We now use SQLAlchemy directly instead of db.Model
 
 __all__ = [
     'User',

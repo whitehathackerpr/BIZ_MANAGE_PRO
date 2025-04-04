@@ -1,78 +1,117 @@
-from app import create_app
-from app.extensions import db
-from flask_migrate import upgrade
+import os
+import sys
+import logging
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from alembic.config import Config
+from alembic import command
+from dotenv import load_dotenv
 
-def init_db():
-    app = create_app()
-    with app.app_context():
-        # Import models after app context is created
-        from app.models import User, Role, Branch, Category
-        from werkzeug.security import generate_password_hash
+# Add the parent directory to sys.path
+sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('logs/init_db.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+def init_database():
+    """Initialize the database with required tables and initial data"""
+    try:
+        # Get database URL from environment
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            raise ValueError("DATABASE_URL environment variable is not set")
+
+        # Create database engine
+        engine = create_engine(database_url)
         
-        # Run any pending migrations
-        upgrade()
-        
-        # Create all tables
-        db.create_all()
-        
-        # Create roles if they don't exist
-        admin_role = Role.query.filter_by(name='admin').first()
-        if not admin_role:
-            admin_role = Role(name='admin', description='Administrator')
-            db.session.add(admin_role)
-            
-        manager_role = Role.query.filter_by(name='manager').first()
-        if not manager_role:
-            manager_role = Role(name='manager', description='Branch Manager')
-            db.session.add(manager_role)
-            
-        employee_role = Role.query.filter_by(name='employee').first()
-        if not employee_role:
-            employee_role = Role(name='employee', description='Employee')
-            db.session.add(employee_role)
-            
-        # Create default admin user if it doesn't exist
-        admin_user = User.query.filter_by(email='admin@example.com').first()
-        if not admin_user:
-            admin_user = User(
-                email='admin@example.com',
-                username='admin',
-                password_hash=generate_password_hash('admin123'),
-                role=admin_role,
+        # Create session
+        Session = sessionmaker(bind=engine)
+        session = Session()
+
+        # Run Alembic migrations
+        logger.info("Running database migrations...")
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+
+        # Import models after migrations
+        from app.models import (
+            User, Role, Branch, Product, Sale,
+            Customer, Employee, Inventory, Notification
+        )
+
+        # Create initial roles if they don't exist
+        logger.info("Creating initial roles...")
+        roles = [
+            {"name": "admin", "description": "Administrator with full access"},
+            {"name": "manager", "description": "Branch manager with limited access"},
+            {"name": "employee", "description": "Regular employee with basic access"},
+            {"name": "customer", "description": "Customer with limited access"}
+        ]
+
+        for role_data in roles:
+            role = session.query(Role).filter_by(name=role_data["name"]).first()
+            if not role:
+                role = Role(**role_data)
+                session.add(role)
+
+        # Create admin user if it doesn't exist
+        logger.info("Creating admin user...")
+        admin_role = session.query(Role).filter_by(name="admin").first()
+        if admin_role:
+            admin = session.query(User).filter_by(email="admin@example.com").first()
+            if not admin:
+                admin = User(
+                    email="admin@example.com",
+                    full_name="Admin User",
+                    password="admin123",  # This should be hashed in production
+                    role_id=admin_role.id,
+                    is_active=True,
+                    is_superuser=True
+                )
+                session.add(admin)
+
+        # Create initial branch if it doesn't exist
+        logger.info("Creating initial branch...")
+        branch = session.query(Branch).first()
+        if not branch:
+            branch = Branch(
+                name="Main Branch",
+                address="123 Main Street",
+                city="New York",
+                state="NY",
+                zip_code="10001",
+                phone="123-456-7890",
+                email="main@example.com",
                 is_active=True
             )
-            db.session.add(admin_user)
-            
-        # Create default branch if it doesn't exist
-        default_branch = Branch.query.filter_by(name='Main Branch').first()
-        if not default_branch:
-            default_branch = Branch(
-                name='Main Branch',
-                address='123 Main St',
-                phone='555-0123',
-                email='main@example.com'
-            )
-            db.session.add(default_branch)
-            
-        # Create default categories if they don't exist
-        default_categories = [
-            'Electronics',
-            'Clothing',
-            'Food',
-            'Books',
-            'Sports',
-            'Home & Garden'
-        ]
-        
-        for category_name in default_categories:
-            category = Category.query.filter_by(name=category_name).first()
-            if not category:
-                category = Category(name=category_name)
-                db.session.add(category)
-        
-        # Commit all changes
-        db.session.commit()
-        print("Database initialized successfully!")
+            session.add(branch)
 
-if __name__ == '__main__':
-    init_db() 
+        # Commit changes
+        session.commit()
+        logger.info("Database initialization completed successfully")
+
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        session.rollback()
+        raise
+
+    finally:
+        session.close()
+
+if __name__ == "__main__":
+    try:
+        init_database()
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {str(e)}")
+        sys.exit(1) 

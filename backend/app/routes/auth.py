@@ -1,216 +1,284 @@
-from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from werkzeug.security import generate_password_hash
-from datetime import timedelta
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime, timedelta, UTC
+from sqlalchemy.orm import Session
 from ..models import User
-from ..extensions import db
+from ..extensions import get_db
 from ..utils.email import send_password_reset_email
 from ..utils.security import generate_reset_token, verify_reset_token
+from ..utils.auth import get_current_user
+from app.config import get_settings
 
-auth_bp = Blueprint('auth', __name__)
+router = APIRouter()
+settings = get_settings()
 
-@auth_bp.route('/api/auth/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    user = User.query.filter_by(email=data.get('email')).first()
+# Import JWT functions
+from main import create_access_token, create_refresh_token, verify_token
+
+# Models
+class UserBase(BaseModel):
+    username: str
+    email: EmailStr
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserResponse(UserBase):
+    id: int
+    is_active: bool
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    id: Optional[int] = None
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+# Routes
+@router.post("/login", response_model=Token)
+async def login(
+    form_data: LoginRequest,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == form_data.username).first()
     
-    if user and user.check_password(data.get('password')):
-        if not user.is_active:
-            return jsonify({
-                'error': 'Account is deactivated'
-            }), 403
-        
-        access_token = create_access_token(
-            identity=user.id,
-            expires_delta=timedelta(hours=1)
+    if not user or not user.check_password(form_data.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-        
-        return jsonify({
-            'message': 'Logged in successfully',
-            'access_token': access_token,
-            'user': user.to_dict()
-        })
     
-    return jsonify({
-        'error': 'Invalid email or password'
-    }), 401
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is deactivated"
+        )
+    
+    # Update last login
+    user.last_login = datetime.now(UTC)
+    db.commit()
+    
+    # Create proper JWT tokens
+    access_token = create_access_token({"sub": user.id})
+    refresh_token = create_refresh_token({"sub": user.id})
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
-@auth_bp.route('/api/auth/register', methods=['POST'])
-def register():
-    data = request.get_json()
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    user: UserCreate,
+    db: Session = Depends(get_db)
+):
+    if db.query(User).filter(User.email == user.email).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
     
-    if User.query.filter_by(email=data.get('email')).first():
-        return jsonify({
-            'error': 'Email already registered'
-        }), 400
+    if db.query(User).filter(User.username == user.username).first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken"
+        )
     
-    if User.query.filter_by(username=data.get('username')).first():
-        return jsonify({
-            'error': 'Username already taken'
-        }), 400
-    
-    user = User(
-        username=data.get('username'),
-        email=data.get('email'),
-        first_name=data.get('first_name'),
-        last_name=data.get('last_name'),
-        phone=data.get('phone')
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        phone=user.phone
     )
-    user.set_password(data.get('password'))
+    db_user.set_password(user.password)
     
-    db.session.add(user)
-    db.session.commit()
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
     
-    access_token = create_access_token(
-        identity=user.id,
-        expires_delta=timedelta(hours=1)
-    )
-    
-    return jsonify({
-        'message': 'User registered successfully',
-        'access_token': access_token,
-        'user': user.to_dict()
-    }), 201
+    return db_user
 
-@auth_bp.route('/api/auth/me')
-@jwt_required()
-def get_current_user():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_route(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    return current_user
+
+@router.put("/update-profile", response_model=UserResponse)
+async def update_profile(
+    user_update: UserBase,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user_update.email != current_user.email:
+        if db.query(User).filter(User.email == user_update.email).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        current_user.email = user_update.email
     
+    if user_update.username != current_user.username:
+        if db.query(User).filter(User.username == user_update.username).first():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+        current_user.username = user_update.username
+    
+    current_user.first_name = user_update.first_name
+    current_user.last_name = user_update.last_name
+    current_user.phone = user_update.phone
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return current_user
+
+@router.post("/change-password")
+async def change_password(
+    current_password: str,
+    new_password: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user.check_password(current_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect"
+        )
+    
+    current_user.set_password(new_password)
+    db.commit()
+    
+    return {"message": "Password changed successfully"}
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token_route(request: Request, db: Session = Depends(get_db)):
+    """Generate a new access token using the refresh token"""
+    token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    payload = verify_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user exists
+    user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        return jsonify({
-            'error': 'User not found'
-        }), 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
-    return jsonify(user.to_dict())
+    # Create new tokens
+    access_token = create_access_token({"sub": user_id})
+    refresh_token = create_refresh_token({"sub": user_id})
+    
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
-@auth_bp.route('/api/auth/update-profile', methods=['PUT'])
-@jwt_required()
-def update_profile():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if not user:
-        return jsonify({
-            'error': 'User not found'
-        }), 404
-    
-    data = request.get_json()
-    
-    if 'email' in data and data['email'] != user.email:
-        if User.query.filter_by(email=data['email']).first():
-            return jsonify({
-                'error': 'Email already registered'
-            }), 400
-        user.email = data['email']
-    
-    if 'username' in data and data['username'] != user.username:
-        if User.query.filter_by(username=data['username']).first():
-            return jsonify({
-                'error': 'Username already taken'
-            }), 400
-        user.username = data['username']
-    
-    if 'first_name' in data:
-        user.first_name = data['first_name']
-    if 'last_name' in data:
-        user.last_name = data['last_name']
-    if 'phone' in data:
-        user.phone = data['phone']
-    
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Profile updated successfully',
-        'user': user.to_dict()
-    })
-
-@auth_bp.route('/api/auth/change-password', methods=['POST'])
-@jwt_required()
-def change_password():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if not user:
-        return jsonify({
-            'error': 'User not found'
-        }), 404
-    
-    data = request.get_json()
-    
-    if not user.check_password(data.get('current_password')):
-        return jsonify({
-            'error': 'Current password is incorrect'
-        }), 401
-    
-    user.set_password(data.get('new_password'))
-    db.session.commit()
-    
-    return jsonify({
-        'message': 'Password changed successfully'
-    })
-
-@auth_bp.route('/api/auth/reset-password-request', methods=['POST'])
-def reset_password_request():
-    data = request.get_json()
-    user = User.query.filter_by(email=data.get('email')).first()
+@router.post("/reset-password-request")
+async def reset_password_request(
+    email: EmailStr,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(User.email == email).first()
     
     if user:
         token = generate_reset_token(user.id)
-        reset_url = f"{current_app.config['FRONTEND_URL']}/reset-password/{token}"
-        send_password_reset_email(user.email, reset_url)
+        reset_url = f"{settings.frontend_url}/reset-password/{token}"
+        await send_password_reset_email(user.email, reset_url)
         
-        return jsonify({
-            'message': 'Password reset instructions sent to your email'
-        })
+        return {"message": "Password reset instructions sent to your email"}
     
-    return jsonify({
-        'error': 'Email not found'
-    }), 404
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Email not found"
+    )
 
-@auth_bp.route('/api/auth/reset-password', methods=['POST'])
-def reset_password():
-    data = request.get_json()
-    token = data.get('token')
+@router.post("/reset-password")
+async def reset_password(
+    token: str,
+    new_password: str,
+    db: Session = Depends(get_db)
+):
     user_id = verify_reset_token(token)
     
     if not user_id:
-        return jsonify({
-            'error': 'Invalid or expired reset token'
-        }), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
     
-    user = User.query.get(user_id)
+    user = db.query(User).get(user_id)
     if not user:
-        return jsonify({
-            'error': 'User not found'
-        }), 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
-    user.set_password(data.get('new_password'))
-    db.session.commit()
+    user.set_password(new_password)
+    db.commit()
     
-    return jsonify({
-        'message': 'Password reset successfully'
-    })
+    return {"message": "Password reset successfully"}
 
-@auth_bp.route('/api/auth/verify-email/<token>')
-def verify_email(token):
+@router.get("/verify-email/{token}")
+async def verify_email(
+    token: str,
+    db: Session = Depends(get_db)
+):
     user_id = verify_reset_token(token)
     
     if not user_id:
-        return jsonify({
-            'error': 'Invalid or expired verification token'
-        }), 400
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token"
+        )
     
-    user = User.query.get(user_id)
+    user = db.query(User).get(user_id)
     if not user:
-        return jsonify({
-            'error': 'User not found'
-        }), 404
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
     
     user.is_active = True
-    db.session.commit()
+    db.commit()
     
-    return jsonify({
-        'message': 'Email verified successfully'
-    }) 
+    return {"message": "Email verified successfully"} 
