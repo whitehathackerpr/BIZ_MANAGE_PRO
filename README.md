@@ -184,7 +184,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- Your Name - Initial work - [YourGitHub](https://github.com/yourusername)
+- Akandwanaho Ivan Alvin- Initial work - [YourGitHub](https://github.com/whitehathackerpr)
 
 ## 🙏 Acknowledgments
 
@@ -199,4 +199,4 @@ For support, email support@example.com or join our Slack channel.
 
 ---
 
-Made with ❤️ by [Your Name](https://github.com/yourusername)
+Made with ❤️ by [Akandwanaho Ivan Alvin](https://github.com/whitehathackerpr)
