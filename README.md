@@ -184,7 +184,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Authors
 
-- Akandwanaho Ivan Alvin- Initial work - [YourGitHub](https://github.com/whitehathackerpr)
+- Akandwanaho Ivan Alvin- Initial work - [GitHub](https://github.com/whitehathackerpr)
 
 ## 🙏 Acknowledgments
 
@@ -195,7 +195,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email support@example.com or join our Slack channel.
+For support, email support@4codex.com or join our Slack channel.
 
 ---
 
