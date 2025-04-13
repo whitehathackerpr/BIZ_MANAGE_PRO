@@ -78,7 +78,7 @@ A modern, full-stack business management system with a Web3-inspired design, rea
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/BIZ_MANAGE_PRO.git
+git clone https://github.com/whitehathackerpr/BIZ_MANAGE_PRO.git
 cd BIZ_MANAGE_PRO
 ```
 
