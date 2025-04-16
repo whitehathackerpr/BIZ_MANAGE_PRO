@@ -1,5 +1,5 @@
 import apiClient from './apiClient';
-import type { User, LoginCredentials, LoginResponse, RegisterRequest, RegisterResponse } from '../types/auth';
+import type { User, LoginCredentials, LoginResponse, RegisterRequest, RegisterResponse, UserRole } from '../types/auth';
 
 class AuthService {
   private baseUrl = '/auth';
@@ -8,17 +8,22 @@ class AuthService {
   private userKey = 'user';
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const formattedCredentials = {
-      email: credentials.email,
-      password: credentials.password
-    };
-    
     try {
-      const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, formattedCredentials);
+      const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, credentials);
       this.setSession(response);
       return response;
     } catch (error) {
       console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async register(data: RegisterRequest): Promise<RegisterResponse> {
+    try {
+      const response = await apiClient.post<RegisterResponse>(`${this.baseUrl}/register`, data);
+      return response;
+    } catch (error) {
+      console.error('Registration error:', error);
       throw error;
     }
   }
@@ -72,22 +77,6 @@ class AuthService {
     });
   }
 
-  async register(data: RegisterRequest): Promise<RegisterResponse> {
-    try {
-      const formattedData = {
-        email: data.email,
-        name: data.name,
-        password: data.password
-      };
-      
-      const response = await apiClient.post<RegisterResponse>(`${this.baseUrl}/register`, formattedData);
-      return response;
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
-    }
-  }
-
   isAuthenticated(): boolean {
     return !!this.getToken() && !!this.getUser();
   }
@@ -107,16 +96,16 @@ class AuthService {
 
   hasPermission(permission: keyof User['permissions']): boolean {
     const user = this.getUser();
-    return user?.permissions[permission] || false;
+    return user?.permissions?.[permission] || false;
   }
 
-  hasRole(role: User['role']): boolean {
+  hasRole(role: UserRole): boolean {
     const user = this.getUser();
-    return user?.role === role;
+    return user?.roles?.includes(role) || false;
   }
 
   private setSession(response: LoginResponse): void {
-    localStorage.setItem(this.tokenKey, response.token);
+    localStorage.setItem(this.tokenKey, response.access_token);
     localStorage.setItem(this.refreshTokenKey, response.refresh_token);
     localStorage.setItem(this.userKey, JSON.stringify(response.user));
   }

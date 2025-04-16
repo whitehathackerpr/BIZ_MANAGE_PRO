@@ -24,15 +24,13 @@ export interface UserPermissions {
 
 export interface User {
   id: number;
-  name: string;
   email: string;
-  role: UserRole;
-  permissions: UserPermissions;
-  business_id?: number;
-  supplier_id?: number;
-  employee_id?: number;
+  name: string;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
+  roles?: UserRole[];
+  permissions?: UserPermissions;
 }
 
 export interface AuthState {
@@ -46,29 +44,25 @@ export interface AuthState {
 export interface LoginCredentials {
   email: string;
   password: string;
-  remember?: boolean;
 }
 
 export interface LoginResponse {
-  success: boolean;
-  user: User;
-  token: string;
+  access_token: string;
   refresh_token: string;
+  user: User;
 }
 
 export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
-  role: UserRole;
-  business_name?: string;
-  supplier_name?: string;
-  employee_id?: string;
 }
 
 export interface RegisterResponse {
-  success: boolean;
-  user: User;
-  token: string;
-  refresh_token: string;
+  id: number;
+  email: string;
+  name: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 } 
