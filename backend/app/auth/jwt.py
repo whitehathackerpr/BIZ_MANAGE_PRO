@@ -111,6 +111,46 @@ def create_refresh_token(
         is_active=is_active,
     )
 
+# For backward compatibility - allowing token data parameter
+def create_access_token_from_data(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create an access token using the legacy data dict format.
+    For backward compatibility with existing code.
+    """
+    user_id = data.get("sub") or data.get("user_id")
+    email = data.get("email")
+    is_superuser = data.get("is_superuser", False)
+    is_active = data.get("is_active", True)
+    
+    return create_access_token(
+        subject=email or user_id,
+        user_id=int(user_id) if user_id else None,
+        email=email,
+        is_superuser=is_superuser,
+        is_active=is_active,
+        expires_delta=expires_delta
+    )
+
+# For backward compatibility - allowing token data parameter
+def create_refresh_token_from_data(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a refresh token using the legacy data dict format.
+    For backward compatibility with existing code.
+    """
+    user_id = data.get("sub") or data.get("user_id")
+    email = data.get("email")
+    is_superuser = data.get("is_superuser", False)
+    is_active = data.get("is_active", True)
+    
+    return create_refresh_token(
+        subject=email or user_id,
+        user_id=int(user_id) if user_id else None,
+        email=email,
+        is_superuser=is_superuser,
+        is_active=is_active,
+        expires_delta=expires_delta
+    )
+
 def decode_token(token: str) -> Dict[str, Any]:
     """
     Decode and verify a JWT token
@@ -133,6 +173,39 @@ def decode_token(token: str) -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+def decode_refresh_token(token: str) -> Dict[str, Any]:
+    """
+    Decode and verify a JWT refresh token
+    
+    Args:
+        token: JWT refresh token to decode
+        
+    Returns:
+        dict: Token payload
+        
+    Raises:
+        HTTPException: If token is invalid or not a refresh token
+    """
+    try:
+        payload = decode_token(token)
+        token_type = payload.get("type")
+        
+        # Ensure this is a refresh token
+        if token_type != REFRESH_TOKEN_TYPE:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token type for refresh operation",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -214,4 +287,11 @@ async def get_current_active_superuser(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions",
         )
-    return current_user 
+    return current_user
+
+def verify_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return payload
+    except jwt.JWTError:
+        return None 

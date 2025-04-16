@@ -7,11 +7,12 @@ from .order import Order, OrderItem, Payment
 from .sale import Sale, SaleItem
 from .supplier import Supplier
 from .address import Address
-from .employee import Employee, Attendance, PerformanceReview
+from .employee import Employee, Attendance, PerformanceReview, EmployeeTimeLog
 from .integration import IntegrationProvider, IntegrationInstance, IntegrationLog
 from .transaction import Transaction, TransactionCategory
 from .settings import Business, SystemSetting
 from .notification import Notification, NotificationSetting
+from .customer import Customer
 
 # We now use SQLAlchemy directly instead of db.Model
 
@@ -33,6 +34,7 @@ __all__ = [
     'Employee',
     'Attendance',
     'PerformanceReview',
+    'EmployeeTimeLog',
     'IntegrationProvider',
     'IntegrationInstance',
     'IntegrationLog',
@@ -41,5 +43,6 @@ __all__ = [
     'Business',
     'SystemSetting',
     'Notification',
-    'NotificationSetting'
+    'NotificationSetting',
+    'Customer'
 ] 

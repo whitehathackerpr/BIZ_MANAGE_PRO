@@ -19,8 +19,8 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 import time
 import redis
-from prometheus_client import Counter, Histogram
-import prometheus_client
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client.registry import CollectorRegistry
 from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.logging import logger
 from app.core.security_middleware import SecurityMiddleware, RateLimitMiddleware
@@ -34,13 +34,17 @@ from app.core.exceptions import (
 )
 from app.config import settings
 from app.extensions import engine, Base
+from contextlib import asynccontextmanager
+
+# Import models to ensure they are registered with SQLAlchemy
+from app.models import (
+    User, Role, Branch, Product, Category, Sale, SaleItem,
+    Employee, Attendance, PerformanceReview, Transaction,
+    Business, SystemSetting, Notification, NotificationSetting
+)
 
 # Import the Flask app factory to integrate with FastAPI
 from app import create_app as create_flask_app
-
-# Import JWT handling
-from jose import JWTError
-from app.auth.jwt import create_access_token, decode_token, get_current_user
 
 # Load environment variables
 load_dotenv()
@@ -63,12 +67,21 @@ logger = logging.getLogger(__name__)
 # See MIGRATION_TODO.md for details on the remaining tasks needed to complete the migration
 
 # Setup primary FastAPI application
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting up BIZ_MANAGE_PRO API")
+    yield
+    # Shutdown
+    logger.info("Shutting down BIZ_MANAGE_PRO API")
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
     description=settings.DESCRIPTION,
     docs_url="/docs" if settings.ENVIRONMENT != "production" else None,
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
+    lifespan=lifespan
 )
 
 # Create the secondary FastAPI application (previously Flask)
@@ -82,9 +95,23 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-# Prometheus metrics
-REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint', 'status'])
-REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency', ['method', 'endpoint'])
+# Create a new registry for our metrics
+metrics_registry = CollectorRegistry()
+
+# Define metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'status'],
+    registry=metrics_registry
+)
+
+REQUEST_LATENCY = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request latency in seconds',
+    ['method', 'endpoint'],
+    registry=metrics_registry
+)
 
 # Middleware
 app.add_middleware(
@@ -143,14 +170,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": exc.errors()}
-    )
-
-# Add JWT exception handler
-@app.exception_handler(JWTError)
-async def jwt_exception_handler(request: Request, exc: JWTError):
-    return JSONResponse(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        content={"detail": "Invalid authentication credentials"}
     )
 
 # Root endpoints
@@ -258,15 +277,13 @@ async def conflict_exception_handler(request, exc):
         content={"detail": exc.detail},
     )
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting up BIZ_MANAGE_PRO API")
-    # Any additional startup tasks go here
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down BIZ_MANAGE_PRO API")
-    # Any cleanup tasks go here
+@app.get("/metrics")
+async def get_metrics():
+    """Expose Prometheus metrics."""
+    return Response(
+        generate_latest(metrics_registry),
+        media_type=CONTENT_TYPE_LATEST
+    )
 
 if __name__ == "__main__":
     # Run the integrated FastAPI application

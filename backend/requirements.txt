@@ -9,6 +9,7 @@ sqlalchemy
 alembic
 psycopg2-binary
 pymysql
+psutil
 
 # Authentication and Security
 # fastapi-jwt-auth  # Removing incompatible library

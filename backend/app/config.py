@@ -50,10 +50,10 @@ class Settings(BaseSettings):
     # Email Settings
     SMTP_HOST: str = Field(default="localhost")
     SMTP_PORT: int = Field(default=1025)
-    SMTP_USER: str = Field(default="test")
-    SMTP_PASSWORD: str = Field(default="test")
-    EMAIL_FROM: str = Field(default="test@example.com")
-    EMAIL_TEMPLATES_DIR: str = "app/email-templates"
+    MAIL_USERNAME: str = Field(default="test")
+    MAIL_PASSWORD: str = Field(default="test")
+    MAIL_FROM: str = Field(default="test@example.com")
+    MAIL_TEMPLATES_DIR: str = "app/email-templates"
 
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"

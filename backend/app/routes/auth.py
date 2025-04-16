@@ -10,12 +10,10 @@ from ..utils.email import send_password_reset_email
 from ..utils.security import generate_reset_token, verify_reset_token
 from ..utils.auth import get_current_user
 from app.config import get_settings
+from app.auth.jwt import create_access_token, create_refresh_token, verify_token
 
 router = APIRouter()
 settings = get_settings()
-
-# Import JWT functions
-from main import create_access_token, create_refresh_token, verify_token
 
 # Models
 class UserBase(BaseModel):

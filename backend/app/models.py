@@ -1,10 +1,31 @@
 from datetime import datetime, UTC
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Float, Date, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
+from app.extensions import Base
 
-Base = declarative_base()
+# Define the association table first
+user_role = Table(
+    'user_role',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('role_id', Integer, ForeignKey('roles.id', ondelete='CASCADE'), primary_key=True)
+)
+
+class Role(Base):
+    __tablename__ = "roles"
+    
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True, nullable=False)
+    description = Column(String(255))
+    is_system = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
+    
+    # Use string reference for the relationship
+    users = relationship('User', secondary='user_role', back_populates='roles')
+    
+    def __repr__(self):
+        return f'<Role {self.name}>'
 
 class User(Base):
     __tablename__ = "user"
@@ -16,14 +37,13 @@ class User(Base):
     first_name = Column(String(64))
     last_name = Column(String(64))
     phone = Column(String(20))
-    role = Column(String(20), default='user')
-    role_id = Column(Integer, ForeignKey('role.id'), nullable=True)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     last_login = Column(DateTime)
     
-    # Relationships
+    # Use string reference for the relationship
+    roles = relationship('Role', secondary='user_role', back_populates='users')
     branches = relationship('Branch', back_populates='manager')
     sales = relationship('Sale', back_populates='user')
     
@@ -35,21 +55,6 @@ class User(Base):
     
     def __repr__(self):
         return f'<User {self.username}>'
-
-class Role(Base):
-    __tablename__ = "role"
-    
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), unique=True, nullable=False)
-    description = Column(String(255))
-    is_system = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    
-    # Relationships
-    users = relationship('User', backref='role_obj')
-    
-    def __repr__(self):
-        return f'<Role {self.name}>'
 
 class Branch(Base):
     __tablename__ = "branch"

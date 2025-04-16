@@ -1,22 +1,14 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from ..extensions import Base
-
-# Association table for user-role many-to-many relationship
-user_role = Table(
-    "user_role",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("user.id"), primary_key=True),
-    Column("role_id", Integer, ForeignKey("role.id"), primary_key=True),
-)
 
 class User(Base):
     """
     User model for authentication and user management.
     """
-    __tablename__ = 'user'
+    __tablename__ = 'users'
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
@@ -28,7 +20,7 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    roles = relationship("Role", secondary=user_role, back_populates="users")
+    roles = relationship("Role", secondary="user_role", back_populates="users")
     profile = relationship('UserProfile', backref='user', uselist=False)
     notifications = relationship('Notification', backref='user', lazy='dynamic')
     
@@ -120,7 +112,7 @@ class UserProfile(Base):
     __tablename__ = 'user_profiles'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'), unique=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True)
     phone = Column(String(20))
     address = Column(String(200))
     avatar = Column(String(200))
@@ -152,7 +144,7 @@ class Notification(Base):
     __tablename__ = 'notifications'
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
     title = Column(String(100), nullable=False)
     message = Column(String(500), nullable=False)
     is_read = Column(Boolean, default=False)

@@ -13,6 +13,7 @@ The JWT implementation has been centralized in the `auth/jwt.py` module, which p
 - Comprehensive payload with user information
 - Consistent error handling
 - Support for both FastAPI and compatibility with Flask-JWT-Extended syntax
+- Backward compatibility with legacy code
 
 ## Token Structure
 
@@ -84,6 +85,27 @@ refresh_token = create_refresh_token(
 )
 ```
 
+### Backward Compatibility
+
+For legacy code that uses the old token creation format:
+
+```python
+from app.auth.jwt import create_access_token_from_data, create_refresh_token_from_data
+
+# Create tokens using the legacy data dict format
+access_token = create_access_token_from_data({
+    "sub": str(user.id),
+    "email": user.email,
+    "is_superuser": user.is_superuser,
+    "is_active": user.is_active
+})
+
+refresh_token = create_refresh_token_from_data({
+    "sub": str(user.id),
+    "email": user.email
+})
+```
+
 ### Protecting Routes
 
 ```python
@@ -109,6 +131,17 @@ The JWT implementation has been recently improved to:
 3. Ensure compatibility with both FastAPI and Flask-JWT-Extended syntax
 4. Improve error handling and response consistency
 5. Add comprehensive documentation
+6. Provide backward compatibility with legacy code
+
+## Backward Compatibility
+
+To support legacy code that relies on the old API, the following functions are provided:
+
+- `create_access_token_from_data(data: dict)`: Create an access token from a data dictionary
+- `create_refresh_token_from_data(data: dict)`: Create a refresh token from a data dictionary
+- `decode_refresh_token(token: str)`: Specialized function to decode refresh tokens
+
+These functions serve as a bridge between the old and new API, allowing for a gradual migration to the new pattern.
 
 ## Security Considerations
 

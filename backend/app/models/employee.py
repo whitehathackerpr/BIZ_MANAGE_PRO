@@ -28,6 +28,7 @@ class Employee(Base):
     user = relationship('User', backref=backref('employee', uselist=False))
     attendance_records = relationship('Attendance', backref='employee', lazy='dynamic')
     performance_reviews = relationship('PerformanceReview', backref='employee', lazy='dynamic')
+    time_logs = relationship('EmployeeTimeLog', backref='employee', lazy='dynamic')
     
     def to_dict(self):
         return {
@@ -118,4 +119,31 @@ class PerformanceReview(Base):
         }
     
     def __repr__(self):
-        return f'<PerformanceReview {self.employee_id} {self.review_date}>' 
+        return f'<PerformanceReview {self.employee_id} {self.review_date}>'
+
+class EmployeeTimeLog(Base):
+    __tablename__ = 'employee_time_logs'
+    
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    check_in = Column(DateTime, nullable=False)
+    check_out = Column(DateTime)
+    status = Column(String(20), default='active')  # active, completed, cancelled
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'employee_id': self.employee_id,
+            'check_in': self.check_in.isoformat() if self.check_in else None,
+            'check_out': self.check_out.isoformat() if self.check_out else None,
+            'status': self.status,
+            'notes': self.notes,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+    
+    def __repr__(self):
+        return f'<EmployeeTimeLog {self.id}>' 

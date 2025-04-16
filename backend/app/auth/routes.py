@@ -1,6 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Body, UploadFile, File
 from sqlalchemy.orm import Session
-from app.auth.jwt import create_access_token, create_refresh_token, decode_refresh_token
+from app.auth.jwt import (
+    create_access_token, create_refresh_token, decode_token, decode_refresh_token,
+    create_access_token_from_data, create_refresh_token_from_data,
+    ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE
+)
 from app.auth.dependencies import get_current_user
 from app.extensions import get_db
 from app.models import User
@@ -83,13 +87,18 @@ async def login(
     user.updated_at = datetime.now(UTC)
     db.commit()
     
-    # Create tokens
-    access_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email, "is_superuser": user.is_superuser, "is_active": user.is_active}
-    )
-    refresh_token = create_refresh_token(
-        data={"sub": str(user.id), "email": user.email}
-    )
+    # Create tokens using the backward compatible method
+    access_token = create_access_token_from_data({
+        "sub": str(user.id),
+        "email": user.email,
+        "is_superuser": user.is_superuser,
+        "is_active": user.is_active
+    })
+    
+    refresh_token = create_refresh_token_from_data({
+        "sub": str(user.id),
+        "email": user.email
+    })
     
     return TokenResponse(
         access_token=access_token,
@@ -104,10 +113,20 @@ async def refresh_token(
 ):
     """Refresh access token"""
     try:
+        # Use the specialized decode_refresh_token function
         payload = decode_refresh_token(refresh_token)
-        user_id = payload.get("sub")
+        user_id = payload.get("user_id") or payload.get("sub")
         
-        user = db.query(User).filter(User.id == int(user_id)).first()
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Handle both numeric user_id and string user_id
+        user_id_value = user_id if isinstance(user_id, int) else int(user_id)
+        user = db.query(User).filter(User.id == user_id_value).first()
         
         if not user:
             raise HTTPException(
@@ -116,23 +135,28 @@ async def refresh_token(
                 headers={"WWW-Authenticate": "Bearer"},
             )
             
-        # Create new tokens
-        access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email, "is_superuser": user.is_superuser, "is_active": user.is_active}
-        )
-        new_refresh_token = create_refresh_token(
-            data={"sub": str(user.id), "email": user.email}
-        )
+        # Create new tokens using the backward compatible method
+        new_access_token = create_access_token_from_data({
+            "sub": str(user.id),
+            "email": user.email,
+            "is_superuser": user.is_superuser,
+            "is_active": user.is_active
+        })
+        
+        new_refresh_token = create_refresh_token_from_data({
+            "sub": str(user.id),
+            "email": user.email
+        })
         
         return TokenResponse(
-            access_token=access_token,
+            access_token=new_access_token,
             refresh_token=new_refresh_token,
             token_type="bearer"
         )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token",
+            detail=f"Invalid refresh token: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

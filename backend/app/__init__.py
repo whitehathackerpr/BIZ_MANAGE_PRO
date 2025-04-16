@@ -14,23 +14,23 @@ def create_app() -> FastAPI:
     settings = get_settings()
 
     # Configure logging
-    log_level = getattr(logging, settings.log_level.upper())
+    log_level = getattr(logging, settings.LOG_LEVEL.upper())
     logging.basicConfig(level=log_level)
-    if settings.log_file:
-        os.makedirs(os.path.dirname(settings.log_file), exist_ok=True)
+    if settings.LOG_FILE:
+        os.makedirs(os.path.dirname(settings.LOG_FILE), exist_ok=True)
         file_handler = RotatingFileHandler(
-            settings.log_file, maxBytes=10485760, backupCount=5
+            settings.LOG_FILE, maxBytes=10485760, backupCount=5
         )
         file_handler.setLevel(log_level)
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(settings.LOG_FORMAT)
         file_handler.setFormatter(formatter)
         logging.getLogger().addHandler(file_handler)
 
     # Initialize FastAPI
     app = FastAPI(
-        title="BizManage Pro API",
-        description="Backend API for BizManage Pro application",
-        version="1.0.0",
+        title=settings.PROJECT_NAME,
+        description=settings.DESCRIPTION,
+        version=settings.VERSION,
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
     # Setup CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins.split(","),
+        allow_origins=settings.CORS_ORIGINS,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -47,7 +47,7 @@ def create_app() -> FastAPI:
 
     # Mount static files
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+    uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), settings.UPLOAD_DIR)
     os.makedirs(uploads_dir, exist_ok=True)
     app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
@@ -55,8 +55,8 @@ def create_app() -> FastAPI:
     logging.info('Business Management System startup')
 
     # Create upload folder if it doesn't exist
-    if not os.path.exists(settings.upload_folder):
-        os.makedirs(settings.upload_folder)
+    if not os.path.exists(settings.UPLOAD_DIR):
+        os.makedirs(settings.UPLOAD_DIR)
 
     # Include routers dynamically
     try:
