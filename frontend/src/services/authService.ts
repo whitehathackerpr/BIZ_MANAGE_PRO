@@ -8,7 +8,12 @@ class AuthService {
   private userKey = 'user';
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, credentials);
+    const formattedCredentials = {
+      email: credentials.email,
+      password: credentials.password
+    };
+    
+    const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, formattedCredentials);
     this.setSession(response);
     return response;
   }
@@ -22,7 +27,8 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User> {
-    return apiClient.get(`${this.baseUrl}/me`);
+    const response = await apiClient.get<User>(`${this.baseUrl}/me`);
+    return response;
   }
 
   async refreshToken(): Promise<{ token: string }> {
@@ -63,7 +69,14 @@ class AuthService {
 
   async register(data: RegisterRequest): Promise<RegisterResponse> {
     try {
-      const response = await apiClient.post<RegisterResponse>(`${this.baseUrl}/register`, data);
+      const formattedData = {
+        email: data.email,
+        name: data.name,
+        password: data.password,
+        role: data.role || 'customer'
+      };
+      
+      const response = await apiClient.post<RegisterResponse>(`${this.baseUrl}/register`, formattedData);
       return response;
     } catch (error) {
       console.error('Registration error:', error);

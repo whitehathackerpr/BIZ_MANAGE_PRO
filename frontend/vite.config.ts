@@ -19,7 +19,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path
@@ -29,7 +29,7 @@ export default defineConfig({
   css: {
     postcss: {
       plugins: [
-        require('@tailwindcss/postcss7-compat'),
+        require('tailwindcss'),
         require('autoprefixer')
       ]
     }
@@ -50,20 +50,9 @@ export default defineConfig({
       'react-router-dom',
       'antd',
       '@ant-design/icons',
-      'lodash/debounce',
       'react-hook-form',
-      '@hookform/resolvers',
-      'yup',
-      '@emotion/react',
-      '@emotion/styled',
-      '@mui/material',
-      '@mui/icons-material',
-      'react-i18next',
-      'i18next',
-      'formik',
-      'zustand',
-      'ethers'
+      '@hookform/resolvers'
     ],
-    exclude: [],
+    exclude: ['ethers'],
   },
 }); 

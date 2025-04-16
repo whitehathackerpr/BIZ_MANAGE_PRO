@@ -1,15 +1,15 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { authService } from '../services/authService';
-import { UserData } from '../types/api/responses/auth';
-import { LoginRequest, RegisterRequest } from '../types/api/requests/auth';
+import { User } from '../types/auth';
+import { LoginCredentials, RegisterRequest } from '../types/auth';
 import { AxiosError } from 'axios';
 
 interface AuthContextType {
-  user: UserData | null;
+  user: User | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (credentials: LoginRequest) => Promise<void>;
+  login: (credentials: LoginCredentials) => Promise<void>;
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -22,7 +22,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<UserData | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
@@ -30,12 +30,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize auth state on component mount
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedUser = authService.getStoredUser();
+      const storedUser = authService.getUser();
       if (storedUser && authService.isAuthenticated()) {
         try {
           // Verify the token is still valid by getting current user
-          const response = await authService.getCurrentUser();
-          setUser(response.user);
+          const currentUser = await authService.getCurrentUser();
+          setUser(currentUser as User);
         } catch (err) {
           // If token is invalid, clear stored data
           await authService.logout();
@@ -51,13 +51,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initializeAuth();
   }, []);
 
-  const login = async (credentials: LoginRequest): Promise<void> => {
+  const login = async (credentials: LoginCredentials): Promise<void> => {
     setLoading(true);
     setError(null);
     
     try {
       const response = await authService.login(credentials);
-      setUser(response.user);
+      setUser(response.user as User);
     } catch (err) {
       if (err instanceof AxiosError && err.response) {
         setError(err.response.data.message || 'Login failed. Please check your credentials.');
@@ -76,7 +76,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     try {
       const response = await authService.register(userData);
-      setUser(response.user);
+      setUser(response.user as User);
     } catch (err) {
       if (err instanceof AxiosError && err.response) {
         setError(err.response.data.message || 'Registration failed. Please try again.');
@@ -111,7 +111,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return <div className="auth-loading">Initializing application...</div>;
   }
 
-  const contextValue: AuthContextType = {
+  const value = {
     user,
     loading,
     error,
@@ -119,14 +119,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    clearError
+    clearError,
   };
 
-  return (
-    <AuthContext.Provider value={contextValue}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
