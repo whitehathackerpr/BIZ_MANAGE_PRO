@@ -1,68 +1,82 @@
-# FastAPI and ASGI
-fastapi==0.109.2
-uvicorn==0.27.1
-python-multipart==0.0.9
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-dotenv==1.0.1
+# Core dependencies
+fastapi
+uvicorn
+starlette
+pydantic
+pydantic-settings
+python-dotenv
+sqlalchemy
+alembic
+psycopg2-binary
+pymysql
 
-# Database
-sqlalchemy==2.0.27
-alembic==1.13.1
-psycopg2-binary==2.9.9
-redis==5.0.1
+# Authentication and Security
+# fastapi-jwt-auth  # Removing incompatible library
+python-jose
+passlib
+python-multipart
+bcrypt
+pydantic[email]
 
-# Security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.9
-python-dotenv==1.0.1
+# Database and ORM
+databases
+asyncpg
+redis
+aioredis
+motor
+beanie
 
 # Monitoring and Metrics
-prometheus-client==0.19.0
-prometheus-fastapi-instrumentator==6.3.0
+prometheus-client
+prometheus-fastapi-instrumentator
 
-# Email
-email-validator==2.1.0.post1
-
-# WebSocket
-websockets==12.0
+# Rate Limiting
+fastapi-limiter
 
 # Testing
-pytest==8.0.0
-pytest-asyncio==0.23.5
-httpx==0.26.0
+pytest
+httpx
+pytest-asyncio
 
-# Development
-black==24.1.1
-isort==5.13.2
-flake8==7.0.0
-mypy==1.8.0
-
-# Utilities
-python-dateutil==2.8.2
-pytz==2024.1
-requests==2.31.0
-aiohttp==3.9.3
-
-# Documentation
-mkdocs==1.5.3
-mkdocs-material==9.5.3
-
-# Data Processing
-pandas==2.2.0
-numpy==1.26.3
-scikit-learn==1.4.0
-
-# File Handling
-python-magic==0.4.27
-Pillow==10.2.0
-
-# Caching
-cachetools==5.3.2
-
-# Logging
-structlog==24.1.0
+# File handling and validation
+python-magic
+pillow
 
 # API Documentation
-swagger-ui-bundle==1.0.0 
+openapi-schema-pydantic
+
+# WebSockets
+websockets
+
+# Utilities
+requests
+python-slugify
+pycountry
+schedule
+validators
+
+# Caching
+fastapi-cache
+
+# Email
+fastapi-mail
+
+# Background tasks
+celery
+redis
+
+# Logging
+loguru
+
+# Session middleware
+itsdangerous
+
+# Alternative database drivers 
+aiomysql
+
+# Compatibility dependencies for Flask migration
+flask
+flask-sqlalchemy
+flask-migrate
+flask-jwt-extended
+flask-security 

@@ -1,29 +1,31 @@
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Float, Boolean, Text, ForeignKey, DateTime
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class Transaction(db.Model):
+class Transaction(Base):
     __tablename__ = 'transactions'
     
-    id = db.Column(db.Integer, primary_key=True)
-    type = db.Column(db.String(20), nullable=False)  # income, expense
-    amount = db.Column(db.Float, nullable=False)
-    description = db.Column(db.Text)
-    category = db.Column(db.String(50))
-    reference_number = db.Column(db.String(50))
-    payment_method = db.Column(db.String(50))
-    status = db.Column(db.String(20), default='completed')  # pending, completed, failed, cancelled
-    date = db.Column(db.DateTime, nullable=False)
-    due_date = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    type = Column(String(20), nullable=False)  # income, expense
+    amount = Column(Float, nullable=False)
+    description = Column(Text)
+    category = Column(String(50))
+    reference_number = Column(String(50))
+    payment_method = Column(String(50))
+    status = Column(String(20), default='completed')  # pending, completed, failed, cancelled
+    date = Column(DateTime, nullable=False)
+    due_date = Column(DateTime)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'))
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'))
-    sale = db.relationship('Sale', backref='transactions')
-    order = db.relationship('Order', backref='transactions')
+    sale_id = Column(Integer, ForeignKey('sales.id'))
+    order_id = Column(Integer, ForeignKey('orders.id'))
+    sale = relationship('Sale', backref='transactions')
+    order = relationship('Order', backref='transactions')
     
     @hybrid_property
     def formatted_amount(self):
@@ -55,19 +57,19 @@ class Transaction(db.Model):
     def __repr__(self):
         return f'<Transaction {self.type} {self.formatted_amount}>'
 
-class TransactionCategory(db.Model):
+class TransactionCategory(Base):
     __tablename__ = 'transaction_categories'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), nullable=False)
-    type = db.Column(db.String(20), nullable=False)  # income, expense
-    description = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False)
+    type = Column(String(20), nullable=False)  # income, expense
+    description = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    transactions = db.relationship('Transaction', backref='category', lazy='dynamic')
+    transactions = relationship('Transaction', backref='category', lazy='dynamic')
     
     def to_dict(self):
         return {

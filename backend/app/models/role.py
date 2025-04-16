@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from ..db.base_class import Base
+from ..extensions import Base
 
 # Association table for role-permission relationship
 role_permissions = Table(
@@ -41,10 +41,10 @@ class Role(Base):
     updated_at = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
     
     # Relationships
-    users = relationship("User", secondary="user_role", back_populates="roles")
-    permissions = relationship("Permission", secondary=role_permission, back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permissions, back_populates="roles")
+    users = relationship("User", secondary="user_roles", back_populates="roles")
     
-    def __init__(self, name, description=None):
+    def __init__(self, name: str, description: str = None):
         self.name = name
         self.description = description
     
@@ -105,14 +105,17 @@ class Permission(Base):
     """
     __tablename__ = 'permissions'
     
-    id = Column(Integer, primary_key=True)
-    name = Column(String(50), unique=True, nullable=False)
-    description = Column(String(200))
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True, nullable=False)
+    description = Column(String, nullable=True)
     category = Column(String(50), default='general')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    def __init__(self, name, description=None, category='general'):
+    # Relationships
+    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
+    
+    def __init__(self, name: str, description: str = None, category: str = 'general'):
         self.name = name
         self.description = description
         self.category = category

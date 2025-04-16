@@ -1,99 +1,96 @@
 from datetime import datetime
+import random
+import string
 from sqlalchemy.ext.hybrid import hybrid_property
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text, DateTime, Numeric
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Sale(db.Model):
+class Sale(Base):
     __tablename__ = 'sales'
     
-    id = db.Column(db.Integer, primary_key=True)
-    customer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    unit_price = db.Column(db.Float, nullable=False)
-    total_amount = db.Column(db.Float, nullable=False)
-    payment_method = db.Column(db.String(50), nullable=False)
-    status = db.Column(db.String(20), nullable=False, default='completed')
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    sale_number = Column(String(32), unique=True, nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
+    total_amount = Column(Float, nullable=False)
+    subtotal = Column(Float, nullable=False)
+    tax_amount = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
+    payment_method = Column(String(20), nullable=False)
+    payment_status = Column(String(20), default='completed')
+    status = Column(String(20), default='completed')
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    customer = db.relationship('User', backref=db.backref('sales', lazy=True))
-    product = db.relationship('Product', backref=db.backref('sales', lazy=True))
-    sale_number = db.Column(db.String(32), unique=True, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    customer_name = db.Column(db.String(100))
-    customer_email = db.Column(db.String(120))
-    customer_phone = db.Column(db.String(20))
-    total_amount = db.Column(db.Float, nullable=False)
-    subtotal = db.Column(db.Float, nullable=False)
-    tax_amount = db.Column(db.Float, default=0.0)
-    discount_amount = db.Column(db.Float, default=0.0)
-    payment_method = db.Column(db.String(50))
-    payment_status = db.Column(db.String(20), default='pending')
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    items = db.relationship('SaleItem', backref='sale', lazy='dynamic', cascade='all, delete-orphan')
-    user = db.relationship('User', backref='sales')
+    items = relationship('SaleItem', backref='sale', lazy='dynamic', cascade='all, delete-orphan')
+    customer = relationship('Customer', backref='sales')
+    created_by_user = relationship('User', backref='sales_created')
     
     @hybrid_property
     def status_display(self):
-        return self.payment_status.capitalize()
+        return self.status.capitalize()
     
     @hybrid_property
     def formatted_total(self):
         return f"${self.total_amount:.2f}"
     
+    def __repr__(self):
+        return f'<Sale {self.sale_number}>'
+    
+    def generate_sale_number(self):
+        timestamp = datetime.utcnow().strftime('%Y%m%d%H%M')
+        random_suffix = ''.join(random.choices(string.digits, k=4))
+        return f'SL-{timestamp}-{random_suffix}'
+    
     def calculate_totals(self):
         self.subtotal = sum(item.subtotal for item in self.items)
-        self.total_amount = self.subtotal + self.tax_amount - self.discount_amount
+        self.total_amount = self.subtotal - self.discount_amount + self.tax_amount
         return self.total_amount
     
     def to_dict(self):
         return {
             'id': self.id,
             'sale_number': self.sale_number,
-            'customer_name': self.customer_name,
-            'customer_email': self.customer_email,
-            'customer_phone': self.customer_phone,
-            'total_amount': float(self.total_amount),
+            'customer': self.customer.to_dict() if self.customer else None,
+            'status': self.status,
+            'payment_status': self.payment_status,
+            'payment_method': self.payment_method,
             'subtotal': float(self.subtotal),
+            'total_amount': float(self.total_amount),
             'tax_amount': float(self.tax_amount),
             'discount_amount': float(self.discount_amount),
-            'payment_method': self.payment_method,
-            'payment_status': self.payment_status,
             'notes': self.notes,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat() if self.updated_at else None,
             'items': [item.to_dict() for item in self.items],
-            'user': self.user.to_dict()
+            'created_by': self.created_by
         }
-    
-    def __repr__(self):
-        return f'<Sale {self.sale_number}>'
 
-class SaleItem(db.Model):
+class SaleItem(Base):
     __tablename__ = 'sale_items'
     
-    id = db.Column(db.Integer, primary_key=True)
-    sale_id = db.Column(db.Integer, db.ForeignKey('sales.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id'))
-    quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    discount = db.Column(db.Float, default=0.0)
-    notes = db.Column(db.Text)
+    id = Column(Integer, primary_key=True)
+    sale_id = Column(Integer, ForeignKey('sales.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    variant_id = Column(Integer, ForeignKey('product_variants.id'))
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    discount = Column(Float, default=0.0)
+    notes = Column(Text)
     
     # Relationships
-    product = db.relationship('Product', backref='sale_items')
-    variant = db.relationship('ProductVariant')
+    product = relationship('Product', backref='sale_items')
+    variant = relationship('ProductVariant')
     
     @hybrid_property
     def subtotal(self):
         return (self.quantity * self.price) - self.discount
+    
+    def __repr__(self):
+        return f'<SaleItem {self.id}>'
     
     def to_dict(self):
         return {
@@ -105,7 +102,4 @@ class SaleItem(db.Model):
             'discount': float(self.discount),
             'subtotal': float(self.subtotal),
             'notes': self.notes
-        }
-    
-    def __repr__(self):
-        return f'<SaleItem {self.id}>' 
+        } 

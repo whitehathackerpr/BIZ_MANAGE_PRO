@@ -1,104 +1,84 @@
-import React from 'react';
-import React from 'react';
+import { Layout, Menu } from 'antd';
 import {
-    Drawer,
-    List,
-    ListItem,
-    ListItemButton,
-    ListItemIcon,
-    ListItemText,
-    Toolbar,
-    Typography,
-    useTheme,
-    useMediaQuery,
-} from '@mui/material';
-import {
-    Dashboard as DashboardIcon,
-    Inventory as InventoryIcon,
-    ShoppingCart as SalesIcon,
-    People as EmployeesIcon,
-    Assessment as AnalyticsIcon,
-    Notifications as NotificationsIcon,
-    Settings as SettingsIcon,
-} from '@mui/icons-material';
+  DashboardOutlined,
+  ShoppingOutlined,
+  InboxOutlined,
+  DollarOutlined,
+  UserOutlined,
+  TeamOutlined,
+  BarChartOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Box } from '@mui/material';
 
-const drawerWidth = 240;
+const { Sider } = Layout;
 
-const menuItems = [
-    { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-    { text: 'Inventory', icon: <InventoryIcon />, path: '/inventory' },
-    { text: 'Sales', icon: <SalesIcon />, path: '/sales' },
-    { text: 'Employees', icon: <EmployeesIcon />, path: '/employees' },
-    { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
-    { text: 'Notifications', icon: <NotificationsIcon />, path: '/notifications' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-];
+const Sidebar = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-const Sidebar = ({ open, toggleDrawer }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const navigate = useNavigate();
-    const location = useLocation();
+  const menuItems = [
+    {
+      key: '/dashboard',
+      icon: <DashboardOutlined />,
+      label: 'Dashboard',
+    },
+    {
+      key: '/products',
+      icon: <ShoppingOutlined />,
+      label: 'Products',
+    },
+    {
+      key: '/inventory',
+      icon: <InboxOutlined />,
+      label: 'Inventory',
+    },
+    {
+      key: '/sales',
+      icon: <DollarOutlined />,
+      label: 'Sales',
+    },
+    {
+      key: '/customers',
+      icon: <UserOutlined />,
+      label: 'Customers',
+    },
+    {
+      key: '/suppliers',
+      icon: <TeamOutlined />,
+      label: 'Suppliers',
+    },
+    {
+      key: '/reports',
+      icon: <BarChartOutlined />,
+      label: 'Reports',
+    },
+    {
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+    },
+  ];
 
-    const drawer = (
-        <div>
-            <Toolbar>
-                <Typography variant="h6" noWrap component="div">
-                    BizManage Pro
-                </Typography>
-            </Toolbar>
-            <List>
-                {menuItems.map((item) => (
-                    <ListItem key={item.text} disablePadding>
-                        <ListItemButton
-                            onClick={(e: React.MouseEvent<HTMLButtonElement>) => () => navigate(item.path)}
-                            selected={location.pathname === item.path}
-                        >
-                            <ListItemIcon>{item.icon}</ListItemIcon>
-                            <ListItemText primary={item.text} />
-                        </ListItemButton>
-                    </ListItem>
-                ))}
-            </List>
-        </div>
-    );
-
-    return (
-        <Box
-            component="nav"
-            sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-        >
-            {isMobile ? (
-                <Drawer
-                    variant="temporary"
-                    open={open}
-                    onClose={toggleDrawer}
-                    ModalProps={{
-                        keepMounted: true,
-                    }}
-                    sx={{
-                        display: { xs: 'block', sm: 'none' },
-                        '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                    }}
-                >
-                    {drawer}
-                </Drawer>
-            ) : (
-                <Drawer
-                    variant="permanent"
-                    sx={{
-                        display: { xs: 'none', sm: 'block' },
-                        '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-                    }}
-                    open
-                >
-                    {drawer}
-                </Drawer>
-            )}
-        </Box>
-    );
+  return (
+    <Sider
+      width={250}
+      className="bg-white shadow-sm"
+      breakpoint="lg"
+      collapsedWidth="0"
+    >
+      <div className="h-16 flex items-center justify-center">
+        <h1 className="text-xl font-bold text-gray-800">BMP</h1>
+      </div>
+      <Menu
+        mode="inline"
+        selectedKeys={[location.pathname]}
+        items={menuItems}
+        onClick={({ key }) => navigate(key)}
+        className="border-r-0"
+      />
+    </Sider>
+  );
 };
 
 export default Sidebar; 

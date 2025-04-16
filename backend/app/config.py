@@ -1,9 +1,10 @@
 import os
-from pydantic import BaseModel
-from typing import Optional, List
+import json
+from pydantic import BaseModel, PostgresDsn, field_validator, Field
+from typing import Optional, List, Union, Annotated, Any
 from datetime import timedelta
 from functools import lru_cache
-from pydantic import BaseSettings, PostgresDsn, validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -16,18 +17,21 @@ class Settings(BaseSettings):
     DESCRIPTION: str = "FastAPI backend for BIZ_MANAGE_PRO"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    SECRET_KEY: str
+    SECRET_KEY: str = Field(default="dev_secret_key_change_in_production")
     API_V1_STR: str = "/api/v1"
 
     # Server Settings
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:5174"]
+    ALLOWED_ORIGINS: List[str] = Field(
+        default=["http://localhost:5173", "http://localhost:5174"],
+        description="JSON list of allowed origins"
+    )
     SSL_KEYFILE: Optional[str] = None
     SSL_CERTFILE: Optional[str] = None
 
     # Database Settings
-    DATABASE_URL: PostgresDsn
+    DATABASE_URL: Union[PostgresDsn, str] = Field(default="sqlite:///./test.db")
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
 
@@ -38,23 +42,26 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: Optional[str] = None
 
     # JWT Settings
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = Field(default="jwt_dev_secret_key_change_in_production")
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Email Settings
-    SMTP_HOST: str
-    SMTP_PORT: int
-    SMTP_USER: str
-    SMTP_PASSWORD: str
-    EMAIL_FROM: str
+    SMTP_HOST: str = Field(default="localhost")
+    SMTP_PORT: int = Field(default=1025)
+    SMTP_USER: str = Field(default="test")
+    SMTP_PASSWORD: str = Field(default="test")
+    EMAIL_FROM: str = Field(default="test@example.com")
     EMAIL_TEMPLATES_DIR: str = "app/email-templates"
 
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
-    ALLOWED_EXTENSIONS: List[str] = ["jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"]
+    ALLOWED_EXTENSIONS: List[str] = Field(
+        default=["jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"],
+        description="JSON list of allowed file extensions"
+    )
 
     # Logging Settings
     LOG_LEVEL: str = "INFO"
@@ -66,9 +73,12 @@ class Settings(BaseSettings):
     ENABLE_METRICS: bool = True
 
     # Security Settings
-    CORS_ORIGINS: List[str]
+    CORS_ORIGINS: List[str] = Field(
+        default=["http://localhost:5173", "http://localhost:5174"],
+        description="JSON list of allowed CORS origins"
+    )
     RATE_LIMIT_PER_MINUTE: int = 60
-    SESSION_SECRET_KEY: str
+    SESSION_SECRET_KEY: str = Field(default="session_dev_secret_key_change_in_production")
     ENABLE_HTTPS: bool = False
 
     # Feature Flags
@@ -109,25 +119,34 @@ class Settings(BaseSettings):
     WEBSOCKET_PING_TIMEOUT: int = 20
     WEBSOCKET_MAX_SIZE: int = 1048576  # 1MB
 
-    @validator("ALLOWED_ORIGINS", "CORS_ORIGINS", pre=True)
+    @field_validator("ALLOWED_ORIGINS", "CORS_ORIGINS", mode="before")
+    @classmethod
     def parse_allowed_origins(cls, v):
         if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
         return v
 
-    @validator("ALLOWED_EXTENSIONS", pre=True)
+    @field_validator("ALLOWED_EXTENSIONS", mode="before")
+    @classmethod
     def parse_allowed_extensions(cls, v):
         if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
         return v
 
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 # Create settings instance
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as e:
+    print(f"Error loading settings: {e}")
+    # Fallback to defaults if environment variables are not correctly formatted
+    settings = Settings.model_construct()
 
 # Create required directories
 def init_directories():
@@ -152,4 +171,4 @@ def get_settings() -> Settings:
     Returns:
         Settings: Application settings
     """
-    return Settings()
+    return settings

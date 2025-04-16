@@ -1,57 +1,51 @@
-import React from 'react';
-import React from 'react';
-import {
-    AppBar,
-    Toolbar,
-    IconButton,
-    Typography,
-    Box,
-    useTheme,
-    useMediaQuery,
-} from '@mui/material';
-import {
-    Menu as MenuIcon,
-    Notifications as NotificationsIcon,
-    Person as PersonIcon,
-} from '@mui/icons-material';
+import { Layout, Button, Space, Avatar, Dropdown } from 'antd';
+import { UserOutlined, LogoutOutlined, SettingOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 
-const Header = ({ open, toggleDrawer }) => {
-    const theme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+const { Header: AntHeader } = Layout;
+
+const Header = () => {
     const navigate = useNavigate();
 
+    const handleLogout = () => {
+        // TODO: Implement logout logic
+        navigate('/login');
+    };
+
+    const userMenu = [
+        {
+            key: 'profile',
+            icon: <UserOutlined />,
+            label: 'Profile',
+        },
+        {
+            key: 'settings',
+            icon: <SettingOutlined />,
+            label: 'Settings',
+        },
+        {
+            key: 'logout',
+            icon: <LogoutOutlined />,
+            label: 'Logout',
+            onClick: handleLogout,
+        },
+    ];
+
     return (
-        <AppBar
-            position="fixed"
-            sx={{
-                width: { sm: `calc(100% - ${240}px)` },
-                ml: { sm: `${240}px` },
-            }}
-        >
-            <Toolbar>
-                <IconButton
-                    color="inherit"
-                    aria-label="open drawer"
-                    edge="start"
-                    onClick={(e: React.MouseEvent<HTMLButtonElement>) => toggleDrawer}
-                    sx={{ mr: 2, display: { sm: 'none' } }}
-                >
-                    <MenuIcon />
-                </IconButton>
-                <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-                    BizManage Pro
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <IconButton color="inherit" onClick={(e: React.MouseEvent<HTMLButtonElement>) => () => navigate('/notifications')}>
-                        <NotificationsIcon />
-                    </IconButton>
-                    <IconButton color="inherit" onClick={(e: React.MouseEvent<HTMLButtonElement>) => () => navigate('/profile')}>
-                        <PersonIcon />
-                    </IconButton>
-                </Box>
-            </Toolbar>
-        </AppBar>
+        <AntHeader className="bg-white shadow-sm flex items-center justify-between px-6">
+            <div className="flex items-center">
+                <h1 className="text-xl font-bold text-gray-800">Business Manager Pro</h1>
+            </div>
+            
+            <Space size="middle">
+                <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+                    <Button type="text" className="flex items-center">
+                        <Avatar icon={<UserOutlined />} />
+                        <span className="ml-2">Admin</span>
+                    </Button>
+                </Dropdown>
+            </Space>
+        </AntHeader>
     );
 };
 

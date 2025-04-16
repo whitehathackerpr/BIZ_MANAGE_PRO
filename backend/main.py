@@ -7,12 +7,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi import APIRouter
 from datetime import datetime, timedelta, UTC
-import jwt
-from jwt.exceptions import InvalidTokenError
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from dotenv import load_dotenv
-from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
@@ -36,8 +33,14 @@ from app.core.exceptions import (
     ConflictException
 )
 from app.config import settings
-from app.database import engine, Base
-from app.api.v1.api import api_router
+from app.extensions import engine, Base
+
+# Import the Flask app factory to integrate with FastAPI
+from app import create_app as create_flask_app
+
+# Import JWT handling
+from jose import JWTError
+from app.auth.jwt import create_access_token, decode_token, get_current_user
 
 # Load environment variables
 load_dotenv()
@@ -59,7 +62,7 @@ logger = logging.getLogger(__name__)
 # NOTE: This FastAPI application is in a transitional state while migrating from Flask
 # See MIGRATION_TODO.md for details on the remaining tasks needed to complete the migration
 
-# Setup FastAPI application
+# Setup primary FastAPI application
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
@@ -68,12 +71,8 @@ app = FastAPI(
     redoc_url="/redoc" if settings.ENVIRONMENT != "production" else None,
 )
 
-# Security configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-REFRESH_TOKEN_EXPIRE_DAYS = 30
-SESSION_SECRET_KEY = os.getenv("SESSION_SECRET_KEY", "your-session-secret-here")
+# Create the secondary FastAPI application (previously Flask)
+flask_api = create_flask_app()
 
 # Redis configuration
 redis_client = redis.Redis(
@@ -98,7 +97,7 @@ app.add_middleware(
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET_KEY)
+app.add_middleware(SessionMiddleware, secret_key=settings.SESSION_SECRET_KEY)
 
 # Prometheus instrumentation
 Instrumentator().instrument(app).expose(app)
@@ -146,27 +145,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": exc.errors()}
     )
 
-# JWT helper functions
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
-def create_refresh_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
-
-def verify_token(token: str):
-    try:
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-        return payload
-    except InvalidTokenError:
-        return None
+# Add JWT exception handler
+@app.exception_handler(JWTError)
+async def jwt_exception_handler(request: Request, exc: JWTError):
+    return JSONResponse(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        content={"detail": "Invalid authentication credentials"}
+    )
 
 # Root endpoints
 @app.get("/")
@@ -191,30 +176,8 @@ def health_check():
         "redis": "connected" if redis_client.ping() else "disconnected"
     }
 
-# Include routers
+# Include health router
 app.include_router(health_router)
-
-# Import and include all route modules
-from app.routes import (
-    auth, users, settings, roles, notifications,
-    products, sales, analytics, branch, chat,
-    customers, inventory, websocket
-)
-
-# Include all routers with proper prefixes
-app.include_router(auth.router, prefix="/api")
-app.include_router(users.router, prefix="/api")
-app.include_router(settings.router, prefix="/api")
-app.include_router(roles.router, prefix="/api")
-app.include_router(notifications.router, prefix="/api")
-app.include_router(products.router, prefix="/api")
-app.include_router(sales.router, prefix="/api")
-app.include_router(analytics.router, prefix="/api")
-app.include_router(branch.router, prefix="/api")
-app.include_router(chat.router, prefix="/api")
-app.include_router(customers.router, prefix="/api")
-app.include_router(inventory.router, prefix="/api")
-app.include_router(websocket.router, prefix="/api")
 
 # Create required directories
 def init_directories():
@@ -222,6 +185,9 @@ def init_directories():
     directories = [
         "logs",
         "uploads",
+        "uploads/profile_pics",
+        "uploads/product_images",
+        "uploads/branch_images"
     ]
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
@@ -232,12 +198,16 @@ init_directories()
 
 # Mount static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Include API router
-app.include_router(api_router, prefix="/api/v1")
+# Merge FastAPI apps
+# This allows us to combine both FastAPI applications by including all routes
+# from the flask_api (secondary app) into our main app
+for route in flask_api.routes:
+    app.routes.append(route)
 
 # Exception handlers
 @app.exception_handler(BusinessException)
@@ -288,24 +258,16 @@ async def conflict_exception_handler(request, exc):
         content={"detail": exc.detail},
     )
 
-# Startup event
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Application startup")
-    # Initialize any required services here
+    logger.info("Starting up BIZ_MANAGE_PRO API")
+    # Any additional startup tasks go here
 
-# Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
-    logger.info("Application shutdown")
-    # Clean up any resources here
+    logger.info("Shutting down BIZ_MANAGE_PRO API")
+    # Any cleanup tasks go here
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        ssl_keyfile=os.getenv("SSL_KEYFILE"),
-        ssl_certfile=os.getenv("SSL_CERTFILE")
-    )
+    # Run the integrated FastAPI application
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

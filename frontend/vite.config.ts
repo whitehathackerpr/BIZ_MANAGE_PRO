@@ -11,12 +11,59 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 5173,
+    host: true,
+    strictPort: true,
+    hmr: {
+      port: 5173,
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:5000',
         changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path
       },
     },
+  },
+  css: {
+    postcss: {
+      plugins: [
+        require('@tailwindcss/postcss7-compat'),
+        require('autoprefixer')
+      ]
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+      },
+    },
+  },
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      'antd',
+      '@ant-design/icons',
+      'lodash/debounce',
+      'react-hook-form',
+      '@hookform/resolvers',
+      'yup',
+      '@emotion/react',
+      '@emotion/styled',
+      '@mui/material',
+      '@mui/icons-material',
+      'react-i18next',
+      'i18next',
+      'formik',
+      'zustand',
+      'ethers'
+    ],
+    exclude: [],
   },
 }); 

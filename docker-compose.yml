@@ -9,7 +9,7 @@ services:
     container_name: biz_manage_pro_backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "5000:5000"
     environment:
       - APP_ENV=development
       - DEBUG=True
@@ -40,8 +40,8 @@ services:
     ports:
       - "5173:5173"
     environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
+      - VITE_API_URL=http://localhost:5000
+      - VITE_WS_URL=ws://localhost:5000
     volumes:
       - ./frontend:/app
       - /app/node_modules

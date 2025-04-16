@@ -9,23 +9,29 @@ from logging.handlers import RotatingFileHandler
 import os
 from config import Config
 
+# Import routes only once
 from app.routes import (
     auth, users, products, sales, inventory, analytics,
     notifications, settings, websocket, branch, roles
 )
 
 def create_app(config_class=Config):
+    """
+    Create a FastAPI application with all necessary routes and middleware.
+    This function is called from main.py to create a secondary FastAPI app
+    that will be merged with the primary app.
+    """
     app = FastAPI(
-        title="Business Management API",
+        title="Business Management API (Legacy)",
         version="1.0",
         description="A comprehensive API for managing business operations",
-        docs_url="/api/docs"
+        docs_url="/api/legacy/docs"
     )
 
     # Configure CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:5173"],  # Allow frontend origin
+        allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -50,10 +56,6 @@ def create_app(config_class=Config):
     if not os.path.exists(config_class.UPLOAD_FOLDER):
         os.makedirs(config_class.UPLOAD_FOLDER)
 
-    # Set up static files
-    app.mount("/static", StaticFiles(directory="static"), name="static")
-    app.mount("/uploads", StaticFiles(directory=config_class.UPLOAD_FOLDER), name="uploads")
-
     # Register routers
     app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
     app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
@@ -72,6 +74,12 @@ def create_app(config_class=Config):
         # Initialize rate limiter
         redis = await aioredis.from_url(config_class.REDIS_URL, encoding="utf8")
         await FastAPILimiter.init(redis)
+        logging.info("Rate limiter initialized")
+
+    @app.get("/api/health")
+    async def health_check():
+        """Health check endpoint for legacy API"""
+        return {"status": "ok", "legacy_api": True}
 
     return app 
 

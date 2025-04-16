@@ -1,29 +1,31 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Boolean, Text, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class Supplier(db.Model):
+class Supplier(Base):
     __tablename__ = 'suppliers'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    contact_person = db.Column(db.String(100))
-    email = db.Column(db.String(120))
-    phone = db.Column(db.String(20))
-    address = db.Column(db.String(200))
-    city = db.Column(db.String(100))
-    state = db.Column(db.String(100))
-    country = db.Column(db.String(100))
-    postal_code = db.Column(db.String(20))
-    tax_id = db.Column(db.String(50))
-    payment_terms = db.Column(db.String(100))
-    website = db.Column(db.String(200))
-    notes = db.Column(db.Text)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    contact_person = Column(String(100))
+    email = Column(String(120))
+    phone = Column(String(20))
+    address = Column(String(200))
+    city = Column(String(100))
+    state = Column(String(100))
+    country = Column(String(100))
+    postal_code = Column(String(20))
+    tax_id = Column(String(50))
+    payment_terms = Column(String(100))
+    website = Column(String(200))
+    notes = Column(Text)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    products = db.relationship('Product', backref='supplier', lazy='dynamic')
+    products = relationship('Product', backref='supplier', lazy='dynamic')
     
     def to_dict(self):
         return {

@@ -19,12 +19,24 @@ def init_db(db: Session) -> None:
             "description": "Superuser with all permissions"
         },
         {
-            "name": "admin",
-            "description": "Administrator with most permissions"
+            "name": "branch_manager",
+            "description": "Branch manager with branch-specific permissions"
         },
         {
-            "name": "user",
-            "description": "Regular user with basic permissions"
+            "name": "employee",
+            "description": "Employee with limited access"
+        },
+        {
+            "name": "cashier",
+            "description": "Cashier with sales and inventory access"
+        },
+        {
+            "name": "supplier",
+            "description": "Supplier with inventory and delivery access"
+        },
+        {
+            "name": "customer",
+            "description": "Customer with product and order access"
         }
     ]
 
@@ -93,7 +105,29 @@ def init_db(db: Session) -> None:
         {"name": "customer:read", "description": "Read customer information"},
         {"name": "customer:create", "description": "Create new customers"},
         {"name": "customer:update", "description": "Update customer information"},
-        {"name": "customer:delete", "description": "Delete customers"}
+        {"name": "customer:delete", "description": "Delete customers"},
+
+        # New Permissions for Enhanced Features
+        {"name": "delivery:read", "description": "Read delivery information"},
+        {"name": "delivery:create", "description": "Create new deliveries"},
+        {"name": "delivery:update", "description": "Update delivery information"},
+        {"name": "delivery:delete", "description": "Delete deliveries"},
+        
+        {"name": "order:read", "description": "Read order information"},
+        {"name": "order:create", "description": "Create new orders"},
+        {"name": "order:update", "description": "Update order information"},
+        {"name": "order:delete", "description": "Delete orders"},
+        
+        {"name": "supplier:read", "description": "Read supplier information"},
+        {"name": "supplier:create", "description": "Create new suppliers"},
+        {"name": "supplier:update", "description": "Update supplier information"},
+        {"name": "supplier:delete", "description": "Delete suppliers"},
+        
+        {"name": "expired:read", "description": "Read expired products information"},
+        {"name": "expired:update", "description": "Update expired products information"},
+        
+        {"name": "location:read", "description": "Read location information"},
+        {"name": "location:update", "description": "Update location information"}
     ]
 
     for permission_data in permissions:
@@ -105,13 +139,84 @@ def init_db(db: Session) -> None:
 
     db.commit()
 
-    # Assign all permissions to superuser role
+    # Assign permissions to roles
     superuser_role = db.query(Role).filter(Role.name == "superuser").first()
+    branch_manager_role = db.query(Role).filter(Role.name == "branch_manager").first()
+    employee_role = db.query(Role).filter(Role.name == "employee").first()
+    cashier_role = db.query(Role).filter(Role.name == "cashier").first()
+    supplier_role = db.query(Role).filter(Role.name == "supplier").first()
+    customer_role = db.query(Role).filter(Role.name == "customer").first()
+
     if superuser_role:
         all_permissions = db.query(Permission).all()
         superuser_role.permissions = all_permissions
-        db.commit()
-        logger.info("Assigned all permissions to superuser role")
+
+    if branch_manager_role:
+        branch_manager_permissions = [
+            "user:read", "user:create", "user:update",
+            "product:read", "product:create", "product:update",
+            "sale:read", "sale:create", "sale:update",
+            "inventory:read", "inventory:create", "inventory:update",
+            "analytics:read",
+            "branch:read", "branch:update",
+            "customer:read", "customer:create", "customer:update",
+            "delivery:read", "delivery:create", "delivery:update",
+            "order:read", "order:create", "order:update",
+            "location:read", "location:update"
+        ]
+        branch_manager_role.permissions = db.query(Permission).filter(
+            Permission.name.in_(branch_manager_permissions)
+        ).all()
+
+    if employee_role:
+        employee_permissions = [
+            "product:read",
+            "sale:read", "sale:create",
+            "inventory:read",
+            "customer:read", "customer:create",
+            "delivery:read",
+            "order:read", "order:create",
+            "location:read"
+        ]
+        employee_role.permissions = db.query(Permission).filter(
+            Permission.name.in_(employee_permissions)
+        ).all()
+
+    if cashier_role:
+        cashier_permissions = [
+            "product:read",
+            "sale:read", "sale:create",
+            "inventory:read",
+            "customer:read",
+            "order:read", "order:create"
+        ]
+        cashier_role.permissions = db.query(Permission).filter(
+            Permission.name.in_(cashier_permissions)
+        ).all()
+
+    if supplier_role:
+        supplier_permissions = [
+            "product:read",
+            "inventory:read",
+            "delivery:read", "delivery:create", "delivery:update",
+            "expired:read", "expired:update",
+            "location:read"
+        ]
+        supplier_role.permissions = db.query(Permission).filter(
+            Permission.name.in_(supplier_permissions)
+        ).all()
+
+    if customer_role:
+        customer_permissions = [
+            "product:read",
+            "order:read", "order:create",
+            "location:read"
+        ]
+        customer_role.permissions = db.query(Permission).filter(
+            Permission.name.in_(customer_permissions)
+        ).all()
+
+    db.commit()
 
     # Create initial superuser
     superuser = db.query(User).filter(User.email == settings.FIRST_SUPERUSER).first()

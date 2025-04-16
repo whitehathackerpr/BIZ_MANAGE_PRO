@@ -3,7 +3,6 @@ import sys
 import logging
 import uvicorn
 from dotenv import load_dotenv
-from app import create_app
 from alembic.config import Config as AlembicConfig
 from alembic import command
 
@@ -49,7 +48,8 @@ def ensure_directories():
         "uploads",
         "uploads/profile_pics",
         "uploads/product_images",
-        "uploads/branch_images"
+        "uploads/branch_images",
+        "static"
     ]
     
     for directory in directories:
@@ -59,7 +59,7 @@ def ensure_directories():
     print("Directory structure verified!")
 
 def main():
-    """Main function to run the FastAPI application"""
+    """Main function to run the integrated FastAPI application"""
     try:
         # Get configuration from environment
         host = os.getenv("HOST", "0.0.0.0")
@@ -75,7 +75,8 @@ def main():
         logger.info(f"Debug mode: {reload}")
         logger.info(f"SSL enabled: {bool(ssl_keyfile and ssl_certfile)}")
 
-        # Run the application
+        # Run the application - This now runs the integrated FastAPI application
+        # that combines both the previous FastAPI and Flask apps
         uvicorn.run(
             "main:app",
             host=host,

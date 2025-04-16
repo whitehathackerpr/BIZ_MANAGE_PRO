@@ -2,32 +2,34 @@ from datetime import datetime
 import random
 import string
 from sqlalchemy.ext.hybrid import hybrid_property
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, Text, DateTime, Numeric
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class Order(db.Model):
+class Order(Base):
     __tablename__ = 'orders'
     
-    id = db.Column(db.Integer, primary_key=True)
-    order_number = db.Column(db.String(32), unique=True, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    total_amount = db.Column(db.Float, nullable=False)
-    subtotal = db.Column(db.Float, nullable=False)
-    tax_amount = db.Column(db.Float, default=0.0)
-    shipping_cost = db.Column(db.Float, default=0.0)
-    discount_amount = db.Column(db.Float, default=0.0)
-    status = db.Column(db.String(20), default='pending')
-    payment_status = db.Column(db.String(20), default='pending')
-    shipping_address_id = db.Column(db.Integer, db.ForeignKey('addresses.id'))
-    billing_address_id = db.Column(db.Integer, db.ForeignKey('addresses.id'))
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    order_number = Column(String(32), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    total_amount = Column(Float, nullable=False)
+    subtotal = Column(Float, nullable=False)
+    tax_amount = Column(Float, default=0.0)
+    shipping_cost = Column(Float, default=0.0)
+    discount_amount = Column(Float, default=0.0)
+    status = Column(String(20), default='pending')
+    payment_status = Column(String(20), default='pending')
+    shipping_address_id = Column(Integer, ForeignKey('addresses.id'))
+    billing_address_id = Column(Integer, ForeignKey('addresses.id'))
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    items = db.relationship('OrderItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
-    payments = db.relationship('Payment', backref='order', lazy='dynamic')
-    shipping_address = db.relationship('Address', foreign_keys=[shipping_address_id])
-    billing_address = db.relationship('Address', foreign_keys=[billing_address_id])
+    items = relationship('OrderItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
+    payments = relationship('Payment', backref='order', lazy='dynamic')
+    shipping_address = relationship('Address', foreign_keys=[shipping_address_id])
+    billing_address = relationship('Address', foreign_keys=[billing_address_id])
     
     @hybrid_property
     def status_display(self):
@@ -69,21 +71,21 @@ class Order(db.Model):
             'billing_address': self.billing_address.to_dict() if self.billing_address else None
         }
 
-class OrderItem(db.Model):
+class OrderItem(Base):
     __tablename__ = 'order_items'
     
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id'))
-    quantity = db.Column(db.Integer, nullable=False)
-    price = db.Column(db.Float, nullable=False)
-    discount = db.Column(db.Float, default=0.0)
-    notes = db.Column(db.Text)
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    variant_id = Column(Integer, ForeignKey('product_variants.id'))
+    quantity = Column(Integer, nullable=False)
+    price = Column(Float, nullable=False)
+    discount = Column(Float, default=0.0)
+    notes = Column(Text)
     
     # Relationships
-    product = db.relationship('Product', backref='order_items')
-    variant = db.relationship('ProductVariant')
+    product = relationship('Product', backref='order_items')
+    variant = relationship('ProductVariant')
     
     @hybrid_property
     def subtotal(self):
@@ -104,19 +106,19 @@ class OrderItem(db.Model):
             'notes': self.notes
         }
 
-class Payment(db.Model):
+class Payment(Base):
     __tablename__ = 'payments'
     
-    id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False)
-    amount = db.Column(db.Numeric(10, 2), nullable=False)
-    payment_method = db.Column(db.String(64), nullable=False)
-    transaction_id = db.Column(db.String(128))
-    status = db.Column(db.String(32), default='pending')
-    payment_date = db.Column(db.DateTime)
-    error_message = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    order_id = Column(Integer, ForeignKey('orders.id'), nullable=False)
+    amount = Column(Numeric(10, 2), nullable=False)
+    payment_method = Column(String(64), nullable=False)
+    transaction_id = Column(String(128))
+    status = Column(String(32), default='pending')
+    payment_date = Column(DateTime)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
         return {

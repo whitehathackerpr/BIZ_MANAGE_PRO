@@ -1,27 +1,29 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Address(db.Model):
+class Address(Base):
     __tablename__ = 'addresses'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    name = db.Column(db.String(100))  # Name for the address (e.g., "Home", "Office")
-    street = db.Column(db.String(255), nullable=False)
-    apartment = db.Column(db.String(100))  # Apartment, suite, unit, etc.
-    city = db.Column(db.String(100), nullable=False)
-    state = db.Column(db.String(100), nullable=False)
-    postal_code = db.Column(db.String(20), nullable=False)
-    country = db.Column(db.String(100), nullable=False)
-    phone = db.Column(db.String(20))
-    is_default = db.Column(db.Boolean, default=False)
-    is_billing = db.Column(db.Boolean, default=False)
-    is_shipping = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    name = Column(String(100))  # Name for the address (e.g., "Home", "Office")
+    street = Column(String(255), nullable=False)
+    apartment = Column(String(100))  # Apartment, suite, unit, etc.
+    city = Column(String(100), nullable=False)
+    state = Column(String(100), nullable=False)
+    postal_code = Column(String(20), nullable=False)
+    country = Column(String(100), nullable=False)
+    phone = Column(String(20))
+    is_default = Column(Boolean, default=False)
+    is_billing = Column(Boolean, default=False)
+    is_shipping = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = db.relationship('User', backref=db.backref('addresses', lazy='dynamic'))
+    user = relationship('User', backref=backref('addresses', lazy='dynamic'))
     
     @property
     def full_address(self):

@@ -1,196 +1,117 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth';
-import { User } from '../types';
+import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { authService } from '../services/authService';
+import { UserData } from '../types/api/responses/auth';
+import { LoginRequest, RegisterRequest } from '../types/api/requests/auth';
+import { AxiosError } from 'axios';
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
-
-interface RegisterData {
-  name: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-}
-
-interface ProfileData {
-  name?: string;
-  email?: string;
-  avatar?: string;
-}
-
-interface PasswordData {
-  currentPassword: string;
-  newPassword: string;
-  confirmPassword: string;
-}
-
-interface AuthContextProps {
-  user: User | null;
+interface AuthContextType {
+  user: UserData | null;
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
-  logout: () => void;
-  updateProfile: (profileData: ProfileData) => Promise<void>;
-  changePassword: (passwordData: PasswordData) => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  resetPassword: (token: string, newPassword: string) => Promise<void>;
-  enableBiometric: () => Promise<void>;
-  verifyBiometric: () => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<void>;
+  register: (userData: RegisterRequest) => Promise<void>;
+  logout: () => Promise<void>;
+  clearError: () => void;
 }
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-const AuthContext = createContext<AuthContextProps | undefined>(undefined);
-
-export const useAuth = (): AuthContextProps => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
+  // Initialize auth state on component mount
   useEffect(() => {
-    checkAuth();
+    const initializeAuth = async () => {
+      const storedUser = authService.getStoredUser();
+      if (storedUser && authService.isAuthenticated()) {
+        try {
+          // Verify the token is still valid by getting current user
+          const response = await authService.getCurrentUser();
+          setUser(response.user);
+        } catch (err) {
+          // If token is invalid, clear stored data
+          await authService.logout();
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+      setIsInitialized(true);
+    };
+
+    initializeAuth();
   }, []);
 
-  const checkAuth = async (): Promise<void> => {
+  const login = async (credentials: LoginRequest): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const userResponse = await authService.getCurrentUser();
-        setUser(userResponse);
+      const response = await authService.login(credentials);
+      setUser(response.user);
+    } catch (err) {
+      if (err instanceof AxiosError && err.response) {
+        setError(err.response.data.message || 'Login failed. Please check your credentials.');
+      } else {
+        setError('An unexpected error occurred. Please try again later.');
       }
-    } catch (error) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-      setError(error instanceof Error ? error.message : 'Authentication error');
+      throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (credentials: LoginCredentials): Promise<void> => {
-    try {
-      const { email, password } = credentials;
-      const response = await authService.login({ email, password });
-      localStorage.setItem('token', response.token);
-      setUser(response.user);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const register = async (userData: RegisterData): Promise<void> => {
-    try {
-      const { confirmPassword, ...registrationData } = userData;
-      const response = await authService.register(registrationData);
-      localStorage.setItem('token', response.token);
-      setUser(response.user);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Registration failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const logout = (): void => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    setUser(null);
+  const register = async (userData: RegisterRequest): Promise<void> => {
+    setLoading(true);
     setError(null);
-    navigate('/login');
-  };
-
-  const updateProfile = async (profileData: ProfileData): Promise<void> => {
+    
     try {
-      const updatedUser = await authService.updateProfile(profileData);
-      setUser(prev => prev ? { ...prev, ...updatedUser } : updatedUser);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Profile update failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      const response = await authService.register(userData);
+      setUser(response.user);
+    } catch (err) {
+      if (err instanceof AxiosError && err.response) {
+        setError(err.response.data.message || 'Registration failed. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again later.');
+      }
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const changePassword = async (passwordData: PasswordData): Promise<void> => {
+  const logout = async (): Promise<void> => {
+    setLoading(true);
+    
     try {
-      const { confirmPassword, ...passwordChangeData } = passwordData;
-      await authService.changePassword(passwordChangeData);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Password change failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
+      await authService.logout();
+      setUser(null);
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const forgotPassword = async (email: string): Promise<void> => {
-    try {
-      await authService.forgotPassword(email);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Password reset request failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
+  const clearError = (): void => {
+    setError(null);
   };
 
-  const resetPassword = async (token: string, newPassword: string): Promise<void> => {
-    try {
-      await authService.resetPassword(token, newPassword);
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Password reset failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
+  // Don't render children until auth is initialized to prevent flashing content
+  if (!isInitialized) {
+    return <div className="auth-loading">Initializing application...</div>;
+  }
 
-  const enableBiometric = async (): Promise<void> => {
-    try {
-      // Here would be the actual implementation to register biometric credentials
-      // This is a placeholder - the actual implementation would depend on your biometric library or API
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Failed to enable biometric authentication';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const verifyBiometric = async (): Promise<void> => {
-    try {
-      // Here would be the actual implementation to verify biometric credentials
-      // This is a placeholder - the actual implementation would depend on your biometric library or API
-      setError(null);
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Biometric verification failed';
-      setError(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
-
-  const value: AuthContextProps = {
+  const contextValue: AuthContextType = {
     user,
     loading,
     error,
@@ -198,15 +119,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    updateProfile,
-    changePassword,
-    forgotPassword,
-    resetPassword,
-    enableBiometric,
-    verifyBiometric,
+    clearError
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 };
 
 export default AuthContext; 

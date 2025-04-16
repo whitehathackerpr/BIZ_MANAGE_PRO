@@ -2,9 +2,7 @@ from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
-
-Base = declarative_base()
+from ..extensions import Base
 
 # Association table for user-role many-to-many relationship
 user_role = Table(

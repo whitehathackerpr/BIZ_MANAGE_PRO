@@ -11,7 +11,7 @@ from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.validation import validate_role_data
 
-router = APIRouter()
+router = APIRouter(prefix="/roles", tags=["roles"])
 
 # Pydantic models
 class RoleBase(BaseModel):
@@ -48,89 +48,53 @@ class TimeLogBase(BaseModel):
     notes: Optional[str] = None
 
 # Routes
-@router.get("/roles", response_model=List[RoleResponse])
+@router.get("/", response_model=List[RoleResponse])
 async def get_roles(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    search: str = Query(""),
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Role)
-    
-    if search:
-        query = query.filter(Role.name.ilike(f'%{search}%'))
-    
-    roles = query.order_by(Role.name.asc())\
-        .offset(skip)\
-        .limit(limit)\
-        .all()
-    
-    return roles
+    """Get all roles"""
+    if not current_user.has_permission("role:read"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    return db.query(Role).all()
 
-@router.post("/roles", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=RoleResponse)
 async def create_role(
     role: RoleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    # Validate role data
-    errors = validate_role_data(role.dict())
-    if errors:
+    """Create a new role"""
+    if not current_user.has_permission("role:create"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=errors
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
         )
     
-    # Check if role name already exists
-    if db.query(Role).filter_by(name=role.name).first():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Role name already exists"
-        )
-    
-    # Create role
-    db_role = Role(
-        name=role.name,
-        description=role.description,
-        is_system=role.is_system
-    )
-    
-    # Add permissions
-    if role.permission_ids:
-        permissions = db.query(Permission).filter(
-            Permission.id.in_(role.permission_ids)
-        ).all()
-        db_role.permissions = permissions
-    
+    db_role = Role(name=role.name, description=role.description)
     db.add(db_role)
     db.commit()
     db.refresh(db_role)
-    
     return db_role
 
-@router.get("/roles/{role_id}", response_model=RoleResponse)
-async def get_role(
-    role_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
-):
-    role = db.query(Role).get(role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
-        )
-    return role
-
-@router.put("/roles/{role_id}", response_model=RoleResponse)
+@router.put("/{role_id}", response_model=RoleResponse)
 async def update_role(
     role_id: int,
-    role_update: RoleBase,
+    role: RoleBase,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    db_role = db.query(Role).get(role_id)
+    """Update a role"""
+    if not current_user.has_permission("role:update"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    db_role = db.query(Role).filter(Role.id == role_id).first()
     if not db_role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,7 +109,7 @@ async def update_role(
         )
     
     # Validate role data
-    errors = validate_role_data(role_update.dict(), partial=True)
+    errors = validate_role_data(role.dict(), partial=True)
     if errors:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -153,84 +117,97 @@ async def update_role(
         )
     
     # Update role fields
-    if role_update.name != db_role.name:
-        if db.query(Role).filter_by(name=role_update.name).first():
+    if role.name != db_role.name:
+        if db.query(Role).filter_by(name=role.name).first():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Role name already exists"
             )
-        db_role.name = role_update.name
+        db_role.name = role.name
     
-    if role_update.description is not None:
-        db_role.description = role_update.description
+    if role.description is not None:
+        db_role.description = role.description
     
     db.commit()
     db.refresh(db_role)
     
     return db_role
 
-@router.delete("/roles/{role_id}")
+@router.delete("/{role_id}")
 async def delete_role(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    role = db.query(Role).get(role_id)
-    if not role:
+    """Delete a role"""
+    if not current_user.has_permission("role:delete"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+    if not db_role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
         )
     
     # Prevent deleting system roles
-    if role.is_system:
+    if db_role.is_system:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete system roles"
         )
     
     # Check if role is assigned to any users
-    if role.users:
+    if db_role.users:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete role that is assigned to users"
         )
     
-    db.delete(role)
+    db.delete(db_role)
     db.commit()
     
     return {"message": "Role deleted successfully"}
 
-@router.get("/roles/{role_id}/permissions", response_model=List[PermissionResponse])
-async def get_role_permissions(
-    role_id: int,
+@router.get("/permissions", response_model=List[PermissionResponse])
+async def get_permissions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    role = db.query(Role).get(role_id)
-    if not role:
+    """Get all permissions"""
+    if not current_user.has_permission("permission:read"):
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Role not found"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
         )
-    return role.permissions
+    return db.query(Permission).all()
 
-@router.put("/roles/{role_id}/permissions")
-async def update_role_permissions(
+@router.post("/{role_id}/permissions")
+async def assign_permissions(
     role_id: int,
     permission_ids: List[int],
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    role = db.query(Role).get(role_id)
-    if not role:
+    """Assign permissions to a role"""
+    if not current_user.has_permission("permission:update"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+    if not db_role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Role not found"
         )
     
     # Prevent modifying system roles
-    if role.is_system:
+    if db_role.is_system:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot modify system roles"
@@ -242,130 +219,35 @@ async def update_role_permissions(
     ).all()
     
     # Update role permissions
-    role.permissions = permissions
+    db_role.permissions = permissions
     db.commit()
     
     return {
-        "message": "Role permissions updated successfully",
+        "message": "Permissions assigned successfully",
         "permissions": permissions
     }
 
-@router.get("/permissions", response_model=List[PermissionResponse])
-async def get_permissions(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    search: str = Query(""),
-    category: Optional[str] = None,
+@router.get("/{role_id}/permissions", response_model=List[PermissionResponse])
+async def get_role_permissions(
+    role_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Permission)
-    
-    if search:
-        query = query.filter(
-            or_(
-                Permission.name.ilike(f'%{search}%'),
-                Permission.description.ilike(f'%{search}%')
-            )
-        )
-    if category:
-        query = query.filter_by(category=category)
-    
-    permissions = query.order_by(Permission.name.asc())\
-        .offset(skip)\
-        .limit(limit)\
-        .all()
-    
-    return permissions
-
-@router.post("/permissions", response_model=PermissionResponse, status_code=status.HTTP_201_CREATED)
-async def create_permission(
-    permission: PermissionBase,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
-):
-    # Check if permission name already exists
-    if db.query(Permission).filter_by(name=permission.name).first():
+    """Get permissions for a specific role"""
+    if not current_user.has_permission("permission:read"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Permission name already exists"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
         )
     
-    # Create permission
-    db_permission = Permission(
-        name=permission.name,
-        description=permission.description,
-        category=permission.category
-    )
-    
-    db.add(db_permission)
-    db.commit()
-    db.refresh(db_permission)
-    
-    return db_permission
-
-@router.get("/permissions/{permission_id}", response_model=PermissionResponse)
-async def get_permission(
-    permission_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
-):
-    permission = db.query(Permission).get(permission_id)
-    if not permission:
+    db_role = db.query(Role).filter(Role.id == role_id).first()
+    if not db_role:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Permission not found"
-        )
-    return permission
-
-@router.put("/permissions/{permission_id}", response_model=PermissionResponse)
-async def update_permission(
-    permission_id: int,
-    permission_update: PermissionBase,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
-):
-    db_permission = db.query(Permission).get(permission_id)
-    if not db_permission:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Permission not found"
+            detail="Role not found"
         )
     
-    # Update permission fields
-    if permission_update.name != db_permission.name:
-        if db.query(Permission).filter_by(name=permission_update.name).first():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Permission name already exists"
-            )
-        db_permission.name = permission_update.name
-    
-    db_permission.description = permission_update.description
-    db_permission.category = permission_update.category
-    
-    db.commit()
-    db.refresh(db_permission)
-    
-    return db_permission
-
-@router.delete("/permissions/{permission_id}")
-async def delete_permission(
-    permission_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(admin_required())
-):
-    permission = db.query(Permission).get(permission_id)
-    if not permission:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Permission not found"
-        )
-    
-    db.delete(permission)
-    db.commit()
-    
-    return {"message": "Permission deleted successfully"}
+    return db_role.permissions
 
 @router.post("/employees/{employee_id}/time-logs", response_model=TimeLogBase)
 async def check_in(

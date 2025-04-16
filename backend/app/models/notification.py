@@ -1,47 +1,49 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Notification(db.Model):
+class Notification(Base):
     __tablename__ = 'notifications'
     __table_args__ = {'extend_existing': True}
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    title = db.Column(db.String(255), nullable=False)
-    message = db.Column(db.Text, nullable=False)
-    type = db.Column(db.String(50), nullable=False)  # warning, info, success
-    read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    title = Column(String(255), nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String(50), nullable=False)  # warning, info, success
+    read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    user = db.relationship('User', backref=db.backref('notifications', lazy=True))
+    user = relationship('User', backref=backref('notifications', lazy=True))
 
     def __repr__(self):
         return f'<Notification {self.id}: {self.title}>'
 
-class NotificationSetting(db.Model):
+class NotificationSetting(Base):
     __tablename__ = 'notification_settings'
     __table_args__ = {'extend_existing': True}
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
     
     # Email notification settings
-    email_low_stock = db.Column(db.Boolean, default=True)
-    email_sales = db.Column(db.Boolean, default=True)
-    email_attendance = db.Column(db.Boolean, default=True)
+    email_low_stock = Column(Boolean, default=True)
+    email_sales = Column(Boolean, default=True)
+    email_attendance = Column(Boolean, default=True)
     
     # In-app notification settings
-    in_app_low_stock = db.Column(db.Boolean, default=True)
-    in_app_sales = db.Column(db.Boolean, default=True)
-    in_app_attendance = db.Column(db.Boolean, default=True)
+    in_app_low_stock = Column(Boolean, default=True)
+    in_app_sales = Column(Boolean, default=True)
+    in_app_attendance = Column(Boolean, default=True)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    user = db.relationship('User', backref=db.backref('notification_settings', lazy=True, uselist=False))
+    user = relationship('User', backref=backref('notification_settings', lazy=True, uselist=False))
 
     def __repr__(self):
         return f'<NotificationSetting {self.id}: User {self.user_id}>' 

@@ -1,55 +1,94 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
-import MainLayout from '../components/layout/MainLayout';
-import { Login } from '../pages/Login';
-import Dashboard from '../pages/Dashboard';
-import Products from '../pages/Products';
-import Orders from '../pages/Orders';
-import Reports from '../pages/Reports';
-import Settings from '../pages/Settings';
-import Profile from '../pages/Profile';
-import NotFound from '../pages/NotFound';
-import useStore from '../store/useStore';
-
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-}
-
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated } = useStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
+import { ProtectedRoute } from '../components/common/ProtectedRoute';
+import Dashboard from '../components/Dashboard';
+import Login from '../components/auth/Login';
+import Unauthorized from '../components/auth/Unauthorized';
+import Sales from '../components/sales/Sales';
+import Inventory from '../components/inventory/Inventory';
+import Employees from '../components/employees/Employees';
+import Settings from '../components/settings/Settings';
+import Profile from '../components/profile/Profile';
 
 const AppRoutes: React.FC = () => {
-  const { t } = useTranslation();
-
   return (
     <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<Login />} />
+      <Route path="/unauthorized" element={<Unauthorized />} />
 
       {/* Protected Routes */}
       <Route
-        path="/"
+        path="/dashboard"
         element={
-          <ProtectedRoute>
-            <MainLayout />
+          <ProtectedRoute
+            requiredPermissions={['canViewDashboard']}
+          >
+            <Dashboard />
           </ProtectedRoute>
         }
-      >
-        <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="products" element={<Products />} />
-        <Route path="orders" element={<Orders />} />
-        <Route path="reports" element={<Reports />} />
-        <Route path="settings" element={<Settings />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="*" element={<NotFound />} />
-      </Route>
+      />
+
+      <Route
+        path="/sales/*"
+        element={
+          <ProtectedRoute
+            requiredPermissions={['canViewSales']}
+          >
+            <Sales />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/inventory/*"
+        element={
+          <ProtectedRoute
+            requiredPermissions={['canViewInventory']}
+          >
+            <Inventory />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/employees/*"
+        element={
+          <ProtectedRoute
+            requiredPermissions={['canViewEmployees']}
+            requiredRoles={['admin', 'manager']}
+          >
+            <Employees />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/settings/*"
+        element={
+          <ProtectedRoute
+            requiredPermissions={['canManageSettings']}
+            requiredRoles={['admin']}
+          >
+            <Settings />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Default Routes */}
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
 };
 
-export { AppRoutes };
 export default AppRoutes; 

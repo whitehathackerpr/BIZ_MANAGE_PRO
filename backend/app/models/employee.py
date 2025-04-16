@@ -1,31 +1,33 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Float, Boolean, Date, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Employee(db.Model):
+class Employee(Base):
     __tablename__ = 'employees'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    employee_id = db.Column(db.String(20), unique=True, nullable=False)
-    position = db.Column(db.String(100), nullable=False)
-    department = db.Column(db.String(100))
-    hire_date = db.Column(db.Date, nullable=False)
-    salary = db.Column(db.Float)
-    commission_rate = db.Column(db.Float)
-    tax_id = db.Column(db.String(50))
-    emergency_contact = db.Column(db.String(100))
-    emergency_phone = db.Column(db.String(20))
-    bank_account = db.Column(db.String(50))
-    bank_name = db.Column(db.String(100))
-    bank_routing = db.Column(db.String(50))
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    employee_id = Column(String(20), unique=True, nullable=False)
+    position = Column(String(100), nullable=False)
+    department = Column(String(100))
+    hire_date = Column(Date, nullable=False)
+    salary = Column(Float)
+    commission_rate = Column(Float)
+    tax_id = Column(String(50))
+    emergency_contact = Column(String(100))
+    emergency_phone = Column(String(20))
+    bank_account = Column(String(50))
+    bank_name = Column(String(100))
+    bank_routing = Column(String(50))
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    user = db.relationship('User', backref=db.backref('employee', uselist=False))
-    attendance_records = db.relationship('Attendance', backref='employee', lazy='dynamic')
-    performance_reviews = db.relationship('PerformanceReview', backref='employee', lazy='dynamic')
+    user = relationship('User', backref=backref('employee', uselist=False))
+    attendance_records = relationship('Attendance', backref='employee', lazy='dynamic')
+    performance_reviews = relationship('PerformanceReview', backref='employee', lazy='dynamic')
     
     def to_dict(self):
         return {
@@ -52,18 +54,18 @@ class Employee(db.Model):
     def __repr__(self):
         return f'<Employee {self.employee_id}>'
 
-class Attendance(db.Model):
+class Attendance(Base):
     __tablename__ = 'attendance'
     
-    id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    check_in = db.Column(db.DateTime)
-    check_out = db.Column(db.DateTime)
-    status = db.Column(db.String(20), default='present')  # present, absent, late, early_leave
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    date = Column(Date, nullable=False)
+    check_in = Column(DateTime)
+    check_out = Column(DateTime)
+    status = Column(String(20), default='present')  # present, absent, late, early_leave
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
         return {
@@ -81,23 +83,23 @@ class Attendance(db.Model):
     def __repr__(self):
         return f'<Attendance {self.employee_id} {self.date}>'
 
-class PerformanceReview(db.Model):
+class PerformanceReview(Base):
     __tablename__ = 'performance_reviews'
     
-    id = db.Column(db.Integer, primary_key=True)
-    employee_id = db.Column(db.Integer, db.ForeignKey('employees.id'), nullable=False)
-    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    review_date = db.Column(db.Date, nullable=False)
-    rating = db.Column(db.Integer)  # 1-5 rating
-    strengths = db.Column(db.Text)
-    weaknesses = db.Column(db.Text)
-    goals = db.Column(db.Text)
-    comments = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False)
+    reviewer_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    review_date = Column(Date, nullable=False)
+    rating = Column(Integer)  # 1-5 rating
+    strengths = Column(Text)
+    weaknesses = Column(Text)
+    goals = Column(Text)
+    comments = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    reviewer = db.relationship('User', backref='reviews_given')
+    reviewer = relationship('User', backref='reviews_given')
     
     def to_dict(self):
         return {

@@ -1,20 +1,22 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class IntegrationProvider(db.Model):
+class IntegrationProvider(Base):
     __tablename__ = 'integration_providers'
     
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
-    type = db.Column(db.String(50), nullable=False)
-    description = db.Column(db.Text)
-    config_schema = db.Column(db.JSON)
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), nullable=False)
+    type = Column(String(50), nullable=False)
+    description = Column(Text)
+    config_schema = Column(JSON)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    instances = db.relationship('IntegrationInstance', backref='provider', lazy='dynamic')
+    instances = relationship('IntegrationInstance', backref='provider', lazy='dynamic')
     
     def to_dict(self):
         return {
@@ -31,22 +33,22 @@ class IntegrationProvider(db.Model):
     def __repr__(self):
         return f'<IntegrationProvider {self.name}>'
 
-class IntegrationInstance(db.Model):
+class IntegrationInstance(Base):
     __tablename__ = 'integration_instances'
     
-    id = db.Column(db.Integer, primary_key=True)
-    provider_id = db.Column(db.Integer, db.ForeignKey('integration_providers.id'), nullable=False)
-    name = db.Column(db.String(255), nullable=False)
-    description = db.Column(db.Text)
-    config = db.Column(db.JSON)
-    credentials = db.Column(db.JSON)
-    status = db.Column(db.String(50), default='inactive')  # active, inactive, error
-    error_message = db.Column(db.Text)
-    last_sync_at = db.Column(db.DateTime)
-    sync_frequency = db.Column(db.String(50))  # daily, weekly, monthly, custom
-    next_sync_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    provider_id = Column(Integer, ForeignKey('integration_providers.id'), nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    config = Column(JSON)
+    credentials = Column(JSON)
+    status = Column(String(50), default='inactive')  # active, inactive, error
+    error_message = Column(Text)
+    last_sync_at = Column(DateTime)
+    sync_frequency = Column(String(50))  # daily, weekly, monthly, custom
+    next_sync_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def to_dict(self):
         return {
@@ -68,19 +70,19 @@ class IntegrationInstance(db.Model):
     def __repr__(self):
         return f'<IntegrationInstance {self.name}>'
 
-class IntegrationLog(db.Model):
+class IntegrationLog(Base):
     __tablename__ = 'integration_logs'
     
-    id = db.Column(db.Integer, primary_key=True)
-    instance_id = db.Column(db.Integer, db.ForeignKey('integration_instances.id'), nullable=False)
-    event_type = db.Column(db.String(50), nullable=False)  # sync, error, config_change
-    status = db.Column(db.String(50), nullable=False)  # success, failure, warning
-    message = db.Column(db.Text)
-    details = db.Column(db.JSON)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    instance_id = Column(Integer, ForeignKey('integration_instances.id'), nullable=False)
+    event_type = Column(String(50), nullable=False)  # sync, error, config_change
+    status = Column(String(50), nullable=False)  # success, failure, warning
+    message = Column(Text)
+    details = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    instance = db.relationship('IntegrationInstance', backref='logs')
+    instance = relationship('IntegrationInstance', backref='logs')
     
     def to_dict(self):
         return {
@@ -96,25 +98,25 @@ class IntegrationLog(db.Model):
     def __repr__(self):
         return f'<IntegrationLog {self.event_type} {self.status}>'
 
-class BranchIntegration(db.Model):
+class BranchIntegration(Base):
     __tablename__ = 'branch_integrations'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    integration_type = db.Column(db.String(50), nullable=False)  # payment, shipping, accounting, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, error
-    last_sync = db.Column(db.DateTime)
-    next_sync = db.Column(db.DateTime)
-    config = db.Column(db.JSON)  # Integration configuration
-    credentials = db.Column(db.JSON)  # Encrypted credentials
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    integration_type = Column(String(50), nullable=False)  # payment, shipping, accounting, etc.
+    status = Column(String(20), default='active')  # active, inactive, error
+    last_sync = Column(DateTime)
+    next_sync = Column(DateTime)
+    config = Column(JSON)  # Integration configuration
+    credentials = Column(JSON)  # Encrypted credentials
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='integrations')
-    creator = db.relationship('User', backref='created_integrations')
+    branch = relationship('Branch', backref='integrations')
+    creator = relationship('User', backref='created_integrations')
 
     def to_dict(self):
         return {
@@ -136,26 +138,26 @@ class BranchIntegration(db.Model):
     def __repr__(self):
         return f'<BranchIntegration {self.branch.name} - {self.integration_type}>'
 
-class BranchIntegrationLog(db.Model):
+class BranchIntegrationLog(Base):
     __tablename__ = 'branch_integration_logs'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    integration_id = db.Column(db.Integer, db.ForeignKey('branch_integrations.id'), nullable=False)
-    operation = db.Column(db.String(50), nullable=False)  # sync, push, pull, etc.
-    status = db.Column(db.String(20), default='pending')  # pending, success, error
-    start_time = db.Column(db.DateTime, nullable=False)
-    end_time = db.Column(db.DateTime)
-    data = db.Column(db.JSON)  # Operation data
-    error = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    integration_id = Column(Integer, ForeignKey('branch_integrations.id'), nullable=False)
+    operation = Column(String(50), nullable=False)  # sync, push, pull, etc.
+    status = Column(String(20), default='pending')  # pending, success, error
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime)
+    data = Column(JSON)  # Operation data
+    error = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='integration_logs')
-    integration = db.relationship('BranchIntegration', backref='logs')
-    creator = db.relationship('User', backref='created_integration_logs')
+    branch = relationship('Branch', backref='integration_logs')
+    integration = relationship('BranchIntegration', backref='logs')
+    creator = relationship('User', backref='created_integration_logs')
 
     def to_dict(self):
         return {
@@ -179,27 +181,27 @@ class BranchIntegrationLog(db.Model):
     def __repr__(self):
         return f'<BranchIntegrationLog {self.branch.name} - {self.operation}>'
 
-class BranchIntegrationMapping(db.Model):
+class BranchIntegrationMapping(Base):
     __tablename__ = 'branch_integration_mappings'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    integration_id = db.Column(db.Integer, db.ForeignKey('branch_integrations.id'), nullable=False)
-    source_type = db.Column(db.String(50), nullable=False)  # internal, external
-    source_field = db.Column(db.String(100), nullable=False)
-    target_type = db.Column(db.String(50), nullable=False)  # internal, external
-    target_field = db.Column(db.String(100), nullable=False)
-    transformation = db.Column(db.JSON)  # Field transformation rules
-    status = db.Column(db.String(20), default='active')  # active, inactive
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    integration_id = Column(Integer, ForeignKey('branch_integrations.id'), nullable=False)
+    source_type = Column(String(50), nullable=False)  # internal, external
+    source_field = Column(String(100), nullable=False)
+    target_type = Column(String(50), nullable=False)  # internal, external
+    target_field = Column(String(100), nullable=False)
+    transformation = Column(JSON)  # Field transformation rules
+    status = Column(String(20), default='active')  # active, inactive
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='integration_mappings')
-    integration = db.relationship('BranchIntegration', backref='mappings')
-    creator = db.relationship('User', backref='created_integration_mappings')
+    branch = relationship('Branch', backref='integration_mappings')
+    integration = relationship('BranchIntegration', backref='mappings')
+    creator = relationship('User', backref='created_integration_mappings')
 
     def to_dict(self):
         return {

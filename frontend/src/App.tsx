@@ -1,34 +1,20 @@
-import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'react-hot-toast';
-import { AppRoutes } from './routes';
-import { Layout } from './components/Layout';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { routes } from './routes';
+import { DarkModeProvider } from './contexts/DarkModeContext';
+import './styles/main.css';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-    },
-  },
-});
-
-export const App: React.FC = () => {
+function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Layout>
-        <AppRoutes />
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 5000,
-            style: {
-              background: '#333',
-              color: '#fff',
-            },
-          }}
-        />
-      </Layout>
-    </QueryClientProvider>
+    <DarkModeProvider>
+      <BrowserRouter>
+        <Routes>
+          {routes.map((route) => (
+            <Route key={route.path} path={route.path} element={route.element} />
+          ))}
+        </Routes>
+      </BrowserRouter>
+    </DarkModeProvider>
   );
-}; 
+}
+
+export default App; 

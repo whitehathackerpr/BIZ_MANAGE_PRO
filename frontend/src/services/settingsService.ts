@@ -1,100 +1,89 @@
-import axios from 'axios';
+import apiClient from './apiClient';
+import type {
+  BusinessSettings,
+  SystemSettings,
+  EmailSettings,
+  StorageSettings,
+  BackupSettings,
+} from '../types/settings';
 
-const API_URL = import.meta.env.VITE_API_URL;
+class SettingsService {
+  private baseUrl = '/settings';
 
-interface UserProfile {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-  phone?: string;
-  role: string;
-  created_at: string;
+  async getBusinessSettings(): Promise<BusinessSettings> {
+    return apiClient.get(`${this.baseUrl}/business`);
+  }
+
+  async updateBusinessSettings(settings: Partial<BusinessSettings>): Promise<BusinessSettings> {
+    return apiClient.put(`${this.baseUrl}/business`, settings);
+  }
+
+  async getSystemSettings(): Promise<SystemSettings> {
+    return apiClient.get(`${this.baseUrl}/system`);
+  }
+
+  async updateSystemSettings(settings: Partial<SystemSettings>): Promise<SystemSettings> {
+    return apiClient.put(`${this.baseUrl}/system`, settings);
+  }
+
+  async getEmailSettings(): Promise<EmailSettings> {
+    return apiClient.get(`${this.baseUrl}/email`);
+  }
+
+  async updateEmailSettings(settings: Partial<EmailSettings>): Promise<EmailSettings> {
+    return apiClient.put(`${this.baseUrl}/email`, settings);
+  }
+
+  async testEmailSettings(settings: EmailSettings): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(`${this.baseUrl}/email/test`, settings);
+  }
+
+  async getStorageSettings(): Promise<StorageSettings> {
+    return apiClient.get(`${this.baseUrl}/storage`);
+  }
+
+  async updateStorageSettings(settings: Partial<StorageSettings>): Promise<StorageSettings> {
+    return apiClient.put(`${this.baseUrl}/storage`, settings);
+  }
+
+  async testStorageConnection(settings: StorageSettings): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(`${this.baseUrl}/storage/test`, settings);
+  }
+
+  async getBackupSettings(): Promise<BackupSettings> {
+    return apiClient.get(`${this.baseUrl}/backup`);
+  }
+
+  async updateBackupSettings(settings: Partial<BackupSettings>): Promise<BackupSettings> {
+    return apiClient.put(`${this.baseUrl}/backup`, settings);
+  }
+
+  async triggerBackup(): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(`${this.baseUrl}/backup/trigger`);
+  }
+
+  async getBackupHistory(): Promise<Array<{ id: string; date: string; size: number; status: string }>> {
+    return apiClient.get(`${this.baseUrl}/backup/history`);
+  }
+
+  async restoreBackup(backupId: string): Promise<{ success: boolean; message: string }> {
+    return apiClient.post(`${this.baseUrl}/backup/restore/${backupId}`);
+  }
+
+  async uploadLogo(file: File): Promise<{ logo_url: string }> {
+    const formData = new FormData();
+    formData.append('logo', file);
+    return apiClient.post(`${this.baseUrl}/business/logo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  }
+
+  async deleteLogo(): Promise<void> {
+    return apiClient.delete(`${this.baseUrl}/business/logo`);
+  }
 }
 
-interface UserProfileUpdateData {
-  name?: string;
-  email?: string;
-  phone?: string;
-}
-
-interface BusinessSettings {
-  name: string;
-  logo?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  tax_id?: string;
-  currency: string;
-  timezone: string;
-  business_hours?: {
-    [day: string]: { open: string; close: string; closed: boolean };
-  };
-}
-
-interface SystemSettings {
-  theme: 'light' | 'dark' | 'system';
-  language: string;
-  date_format: string;
-  notifications: {
-    email: boolean;
-    push: boolean;
-    sms: boolean;
-  };
-  security: {
-    two_factor_enabled: boolean;
-    session_timeout: number;
-    password_expiry_days: number;
-  };
-}
-
-// User Profile
-export const getUserProfile = async (): Promise<UserProfile> => {
-  const response = await axios.get<{ data: UserProfile }>(`${API_URL}/settings/users/me`);
-  return response.data.data;
-};
-
-export const updateUserProfile = async (data: UserProfileUpdateData): Promise<UserProfile> => {
-  const response = await axios.put<{ data: UserProfile }>(`${API_URL}/settings/users/me`, data);
-  return response.data.data;
-};
-
-export const uploadAvatar = async (file: File): Promise<{ avatar: string }> => {
-  const formData = new FormData();
-  formData.append('avatar', file);
-  
-  const response = await axios.post<{ data: { avatar: string } }>(`${API_URL}/settings/users/avatar`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
-  return response.data.data;
-};
-
-// Business Settings
-export const getBusinessSettings = async (): Promise<BusinessSettings> => {
-  const response = await axios.get<{ data: BusinessSettings }>(`${API_URL}/settings/business`);
-  return response.data.data;
-};
-
-export const updateBusinessSettings = async (data: Partial<BusinessSettings>): Promise<BusinessSettings> => {
-  const response = await axios.put<{ data: BusinessSettings }>(`${API_URL}/settings/business`, data);
-  return response.data.data;
-};
-
-// System Settings
-export const getSystemSettings = async (): Promise<SystemSettings> => {
-  const response = await axios.get<{ data: SystemSettings }>(`${API_URL}/settings/system`);
-  return response.data.data;
-};
-
-export const updateSystemSettings = async (data: Partial<SystemSettings>): Promise<SystemSettings> => {
-  const response = await axios.put<{ data: SystemSettings }>(`${API_URL}/settings/system`, data);
-  return response.data.data;
-};
-
-// Account Management
-export const deleteAccount = async (): Promise<{ message: string }> => {
-  const response = await axios.delete<{ data: { message: string } }>(`${API_URL}/settings/users/me`);
-  return response.data.data;
-}; 
+export const settingsService = new SettingsService();
+export default settingsService; 
