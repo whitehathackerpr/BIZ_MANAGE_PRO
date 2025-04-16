@@ -13,9 +13,14 @@ class AuthService {
       password: credentials.password
     };
     
-    const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, formattedCredentials);
-    this.setSession(response);
-    return response;
+    try {
+      const response = await apiClient.post<LoginResponse>(`${this.baseUrl}/login`, formattedCredentials);
+      this.setSession(response);
+      return response;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   }
 
   async logout(): Promise<void> {
@@ -72,8 +77,7 @@ class AuthService {
       const formattedData = {
         email: data.email,
         name: data.name,
-        password: data.password,
-        role: data.role || 'customer'
+        password: data.password
       };
       
       const response = await apiClient.post<RegisterResponse>(`${this.baseUrl}/register`, formattedData);
