@@ -1,57 +1,59 @@
-from app import db
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy.orm import relationship, backref
+from ..extensions import Base
 
-class Business(db.Model):
+class Business(Base):
     __tablename__ = 'businesses'
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    address = db.Column(db.String(200))
-    city = db.Column(db.String(100))
-    state = db.Column(db.String(100))
-    zip_code = db.Column(db.String(20))
-    country = db.Column(db.String(100))
-    phone = db.Column(db.String(20))
-    email = db.Column(db.String(120))
-    tax_id = db.Column(db.String(50))
-    currency = db.Column(db.String(3), default='USD')
-    timezone = db.Column(db.String(50), default='UTC')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    address = Column(String(200))
+    city = Column(String(100))
+    state = Column(String(100))
+    zip_code = Column(String(20))
+    country = Column(String(100))
+    phone = Column(String(20))
+    email = Column(String(120))
+    tax_id = Column(String(50))
+    currency = Column(String(3), default='USD')
+    timezone = Column(String(50), default='UTC')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f'<Business {self.name}>'
 
-class SystemSetting(db.Model):
+class SystemSetting(Base):
     __tablename__ = 'system_settings'
 
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    dark_mode = db.Column(db.Boolean, default=False)
-    email_notifications = db.Column(db.Boolean, default=True)
-    two_factor_auth = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    dark_mode = Column(Boolean, default=False)
+    email_notifications = Column(Boolean, default=True)
+    two_factor_auth = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = db.relationship('User', backref=db.backref('system_settings', lazy=True))
+    user = relationship('User', backref=backref('system_settings', lazy=True))
 
     def __repr__(self):
         return f'<SystemSetting {self.user_id}>'
 
-class BranchSettings(db.Model):
+class BranchSettings(Base):
     __tablename__ = 'branch_settings'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    operating_hours = db.Column(db.JSON, nullable=False)
-    inventory_settings = db.Column(db.JSON, nullable=False)
-    sales_settings = db.Column(db.JSON, nullable=False)
-    notification_settings = db.Column(db.JSON, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    operating_hours = Column(JSON, nullable=False)
+    inventory_settings = Column(JSON, nullable=False)
+    sales_settings = Column(JSON, nullable=False)
+    notification_settings = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='settings')
+    branch = relationship('Branch', backref='settings')
 
     def to_dict(self):
         return {
@@ -69,20 +71,20 @@ class BranchSettings(db.Model):
     def __repr__(self):
         return f'<BranchSettings {self.branch.name}>'
 
-class BranchUserSettings(db.Model):
+class BranchUserSettings(Base):
     __tablename__ = 'branch_user_settings'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    role = db.Column(db.String(50), nullable=False)
-    permissions = db.Column(db.JSON, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    role = Column(String(50), nullable=False)
+    permissions = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='user_settings')
-    user = db.relationship('User', backref='branch_settings')
+    branch = relationship('Branch', backref='user_settings')
+    user = relationship('User', backref='branch_settings')
 
     def to_dict(self):
         return {

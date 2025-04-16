@@ -20,12 +20,12 @@ user_roles = Table(
     Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True)
 )
 
-# Association table for role-permission many-to-many relationship
+# Association table for role-permission many-to-many relationship (alternate implementation)
 role_permission = Table(
     "role_permission",
     Base.metadata,
-    Column("role_id", Integer, ForeignKey("role.id"), primary_key=True),
-    Column("permission_id", Integer, ForeignKey("permission.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+    Column("permission_id", Integer, ForeignKey("permissions.id"), primary_key=True),
 )
 
 class Role(Base):
