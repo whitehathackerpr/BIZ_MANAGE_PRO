@@ -15,6 +15,7 @@ class UserLogin(BaseModel):
 class UserRegistration(UserBase):
     """Registration data"""
     password: str = Field(..., min_length=8)
+    role: str
     
 class UserResponse(UserBase):
     """User response data"""

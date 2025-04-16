@@ -1,8 +1,17 @@
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from ..extensions import Base
+from sqlalchemy.sql import func
+from ..db.base_class import Base
+
+# Association table for user-role many-to-many relationship
+user_role = Table(
+    'user_role',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True)
+)
 
 class User(Base):
     """
@@ -16,13 +25,14 @@ class User(Base):
     full_name = Column(String)
     is_active = Column(Boolean, default=True)
     is_superuser = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    roles = relationship("Role", secondary="user_role", back_populates="users")
+    roles = relationship("Role", secondary=user_role, back_populates="users")
     profile = relationship('UserProfile', backref='user', uselist=False)
     notifications = relationship('Notification', backref='user', lazy='dynamic')
+    permissions = relationship("Permission", secondary="user_permission", back_populates="users")
     
     def __init__(self, email, password=None, full_name=None, is_active=True, is_superuser=False):
         self.email = email

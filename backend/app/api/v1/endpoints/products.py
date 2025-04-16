@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ...core.deps import get_db, get_current_user
@@ -8,7 +8,8 @@ from ...schemas.product import (
     Product,
     ProductCreate,
     ProductUpdate,
-    ProductList
+    ProductList,
+    ProductResponse
 )
 from ...models.user import User
 
@@ -47,40 +48,52 @@ def read_products(
     total = len(products)
     return {"items": products, "total": total}
 
-@router.post("/", response_model=Product)
-def create_product(
-    *,
+@router.post("/", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
+async def create_product(
+    product: ProductCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    product_in: ProductCreate
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Create new product.
+    Create a new product.
+    
+    - **name**: Product name
+    - **description**: Product description
+    - **price**: Product price
+    - **stock**: Initial stock quantity
+    - **category_id**: Product category ID
+    - **supplier_id**: Supplier ID
     """
     # Check if SKU already exists
-    if crud_product.get_by_sku(db=db, sku=product_in.sku):
+    if crud_product.get_by_sku(db=db, sku=product.sku):
         raise HTTPException(
             status_code=400,
             detail="Product with this SKU already exists"
         )
     
     # Check if barcode already exists
-    if product_in.barcode and crud_product.get_by_barcode(db=db, barcode=product_in.barcode):
+    if product.barcode and crud_product.get_by_barcode(db=db, barcode=product.barcode):
         raise HTTPException(
             status_code=400,
             detail="Product with this barcode already exists"
         )
     
-    return crud_product.create(db=db, obj_in=product_in)
+    db_product = Product(**product.dict())
+    db.add(db_product)
+    db.commit()
+    db.refresh(db_product)
+    return db_product
 
-@router.get("/{product_id}", response_model=Product)
-def read_product(
+@router.get("/{product_id}", response_model=ProductResponse)
+async def get_product(
     product_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get product by ID.
+    Get a specific product by ID.
+    
+    - **product_id**: The ID of the product to retrieve
     """
     product = crud_product.get(db=db, id=product_id)
     if not product:
@@ -90,16 +103,23 @@ def read_product(
         )
     return product
 
-@router.put("/{product_id}", response_model=Product)
-def update_product(
-    *,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+@router.put("/{product_id}", response_model=ProductResponse)
+async def update_product(
     product_id: int,
-    product_in: ProductUpdate
+    product_update: ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Update product.
+    Update a product.
+    
+    - **product_id**: The ID of the product to update
+    - **name**: New product name (optional)
+    - **description**: New product description (optional)
+    - **price**: New product price (optional)
+    - **stock**: New stock quantity (optional)
+    - **category_id**: New category ID (optional)
+    - **supplier_id**: New supplier ID (optional)
     """
     product = crud_product.get(db=db, id=product_id)
     if not product:
@@ -108,33 +128,39 @@ def update_product(
             detail="Product not found"
         )
     
+    for field, value in product_update.dict(exclude_unset=True).items():
+        setattr(product, field, value)
+    
     # Check if new SKU already exists
-    if product_in.sku and product_in.sku != product.sku:
-        if crud_product.get_by_sku(db=db, sku=product_in.sku):
+    if product_update.sku and product_update.sku != product.sku:
+        if crud_product.get_by_sku(db=db, sku=product_update.sku):
             raise HTTPException(
                 status_code=400,
                 detail="Product with this SKU already exists"
             )
     
     # Check if new barcode already exists
-    if product_in.barcode and product_in.barcode != product.barcode:
-        if crud_product.get_by_barcode(db=db, barcode=product_in.barcode):
+    if product_update.barcode and product_update.barcode != product.barcode:
+        if crud_product.get_by_barcode(db=db, barcode=product_update.barcode):
             raise HTTPException(
                 status_code=400,
                 detail="Product with this barcode already exists"
             )
     
-    return crud_product.update(db=db, db_obj=product, obj_in=product_in)
+    db.commit()
+    db.refresh(product)
+    return product
 
-@router.delete("/{product_id}", response_model=Product)
-def delete_product(
-    *,
+@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(
+    product_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    product_id: int
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Delete product.
+    Delete a product.
+    
+    - **product_id**: The ID of the product to delete
     """
     product = crud_product.get(db=db, id=product_id)
     if not product:
@@ -142,7 +168,9 @@ def delete_product(
             status_code=404,
             detail="Product not found"
         )
-    return crud_product.remove(db=db, id=product_id)
+    
+    crud_product.remove(db=db, id=product_id)
+    return None
 
 @router.get("/search/", response_model=List[Product])
 def search_products(

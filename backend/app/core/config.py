@@ -4,6 +4,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Settings(BaseSettings):
     # Application Settings
@@ -26,7 +29,7 @@ class Settings(BaseSettings):
     SSL_CERTFILE: Optional[str] = None
 
     # Database Settings
-    DATABASE_URL: Union[PostgresDsn, str] = Field(default="sqlite:///./test.db")
+    DATABASE_URL: Union[PostgresDsn, str] = Field(default="sqlite:///./biz_manage.db")
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 10
 
@@ -52,7 +55,7 @@ class Settings(BaseSettings):
 
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"
-    MAX_UPLOAD_SIZE: int = 10485760  # 10MB
+    MAX_UPLOAD_SIZE: int = 5 * 1024 * 1024  # 5MB
     ALLOWED_EXTENSIONS: List[str] = Field(
         default=["jpg", "jpeg", "png", "pdf", "doc", "docx", "xls", "xlsx"],
         description="JSON list of allowed file extensions"
@@ -119,6 +122,17 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str = "changeme"
     FIRST_ADMIN: str = "admin@example.com"
     FIRST_ADMIN_PASSWORD: str = "changeme"
+
+    # Email Configuration
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "noreply@bizmanage.com")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_TLS: bool = True
+    MAIL_SSL: bool = False
+    USE_CREDENTIALS: bool = True
+    VALIDATE_CERTS: bool = True
 
     @field_validator("ALLOWED_ORIGINS", "CORS_ORIGINS", mode="before")
     @classmethod

@@ -56,6 +56,7 @@ export interface RegisterRequest {
   name: string;
   email: string;
   password: string;
+  role: UserRole;
 }
 
 export interface RegisterResponse {
@@ -65,4 +66,5 @@ export interface RegisterResponse {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  roles: string[];
 } 

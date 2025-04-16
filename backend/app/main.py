@@ -11,6 +11,7 @@ from .core.logging import logger
 from .db.session import SessionLocal, engine
 from .db.init_db import init_db
 from .core.rate_limit import RateLimitMiddleware
+from .core.security_middleware import ContentSecurityPolicyMiddleware, SecurityMiddleware
 from .db.base import Base
 
 # Create database tables
@@ -35,7 +36,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add rate limiting middleware
+# Add security middleware
+app.add_middleware(ContentSecurityPolicyMiddleware)
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(RateLimitMiddleware)
 
 # Add Prometheus metrics
@@ -99,6 +102,38 @@ def custom_openapi():
     
     # Add security requirements
     openapi_schema["security"] = [{"OAuth2PasswordBearer": []}]
+    
+    # Add tags for better organization
+    openapi_schema["tags"] = [
+        {
+            "name": "Authentication",
+            "description": "Authentication and authorization endpoints"
+        },
+        {
+            "name": "Users",
+            "description": "User management endpoints"
+        },
+        {
+            "name": "Roles",
+            "description": "Role management endpoints"
+        },
+        {
+            "name": "Permissions",
+            "description": "Permission management endpoints"
+        },
+        {
+            "name": "Products",
+            "description": "Product management endpoints"
+        },
+        {
+            "name": "Profile",
+            "description": "User profile management endpoints"
+        },
+        {
+            "name": "Security",
+            "description": "Security-related endpoints (2FA, password reset, etc.)"
+        }
+    ]
     
     app.openapi_schema = openapi_schema
     return app.openapi_schema

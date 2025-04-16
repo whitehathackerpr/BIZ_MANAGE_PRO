@@ -16,6 +16,7 @@ from app.auth.utils import verify_password, get_password_hash, generate_password
 from datetime import datetime, UTC
 import os
 from app.config import settings
+from app.models import Role
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
