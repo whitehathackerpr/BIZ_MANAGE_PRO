@@ -2,7 +2,8 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from ..db.base_class import Base
+from app.db import Base
+from app.models.user import user_role  # Import the user_role table
 
 # Association table for role-permission relationship
 role_permissions = Table(
@@ -10,14 +11,6 @@ role_permissions = Table(
     Base.metadata,
     Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True),
     Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
-)
-
-# Association table for many-to-many relationship between users and roles
-user_roles = Table(
-    "user_roles",
-    Base.metadata,
-    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
-    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True)
 )
 
 # Association table for role-permission many-to-many relationship (alternate implementation)
@@ -43,7 +36,7 @@ class Role(Base):
     
     # Relationships
     users = relationship("User", secondary="user_role", back_populates="roles")
-    permissions = relationship("Permission", secondary="role_permission", back_populates="roles")
+    permissions = relationship("Permission", secondary=role_permission, back_populates="roles")
     
     def __init__(self, name: str, description: str = None):
         self.name = name
@@ -98,44 +91,4 @@ class Role(Base):
             self.permissions.remove(permission)
     
     def __repr__(self):
-        return f'<Role {self.name}>'
-
-class Permission(Base):
-    """
-    Permission model for role-based access control.
-    """
-    __tablename__ = 'permissions'
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True, nullable=False)
-    description = Column(String, nullable=True)
-    category = Column(String(50), default='general')
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relationships
-    roles = relationship("Role", secondary=role_permissions, back_populates="permissions")
-    
-    def __init__(self, name: str, description: str = None, category: str = 'general'):
-        self.name = name
-        self.description = description
-        self.category = category
-    
-    def to_dict(self):
-        """
-        Convert permission to dictionary.
-        
-        Returns:
-            dict: Permission data
-        """
-        return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'category': self.category,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
-        }
-    
-    def __repr__(self):
-        return f'<Permission {self.name}>' 
+        return f'<Role {self.name}>' 

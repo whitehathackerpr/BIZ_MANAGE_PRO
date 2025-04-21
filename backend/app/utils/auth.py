@@ -6,18 +6,19 @@ from typing import Optional
 from app.config import get_settings
 from app.models import User
 from ..extensions import get_db
+from app.core.security import verify_token  # Import from security module instead of main
 
 # Initialize settings
 settings = get_settings()
 
 def generate_password_reset_token(user_id: int) -> str:
     """Generate a password reset token for a user."""
-    s = URLSafeTimedSerializer(settings.secret_key)
+    s = URLSafeTimedSerializer(settings.SECRET_KEY)
     return s.dumps(str(user_id), salt='password-reset-salt')
 
 def verify_password_reset_token(token: str) -> Optional[int]:
     """Verify a password reset token and return the user ID."""
-    s = URLSafeTimedSerializer(settings.secret_key)
+    s = URLSafeTimedSerializer(settings.SECRET_KEY)
     try:
         user_id = s.loads(token, salt='password-reset-salt', max_age=3600)
         return int(user_id)
@@ -52,8 +53,6 @@ async def get_current_user(
     Get the current user from the JWT token.
     This function requires a valid JWT token.
     """
-    from main import verify_token  # Import here to avoid circular imports
-    
     try:
         # Get the token from the authorization header
         token = get_token_from_header(request)

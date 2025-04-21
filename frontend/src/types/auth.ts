@@ -1,4 +1,4 @@
-export type UserRole = 'business_owner' | 'super_admin' | 'customer' | 'supplier' | 'employee';
+export type UserRole = 'admin' | 'manager' | 'employee' | 'customer' | 'business_owner' | 'super_admin' | 'supplier';
 
 export interface Permission {
   id: string;
@@ -20,17 +20,41 @@ export interface UserPermissions {
   canManageProducts: boolean;
   canManageOrders: boolean;
   canManagePayments: boolean;
+  canManageInventory: boolean;
 }
 
 export interface User {
   id: number;
   email: string;
+  full_name: string | null;
+  is_active: boolean;
+  is_superuser: boolean;
+  created_at: string;
+  updated_at: string;
+  roles?: Role[];
+  permissions?: UserPermissions;
+  profile?: UserProfile;
+}
+
+export interface Role {
+  id: number;
   name: string;
+  description: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  roles?: UserRole[];
-  permissions?: UserPermissions;
+  permissions?: string[];
+}
+
+export interface UserProfile {
+  id: number;
+  user_id: number;
+  phone: string | null;
+  address: string | null;
+  avatar: string | null;
+  bio: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AuthState {
@@ -49,22 +73,24 @@ export interface LoginCredentials {
 export interface LoginResponse {
   access_token: string;
   refresh_token: string;
+  token_type: string;
   user: User;
 }
 
 export interface RegisterRequest {
-  name: string;
   email: string;
   password: string;
+  full_name: string;
   role: UserRole;
 }
 
 export interface RegisterResponse {
   id: number;
   email: string;
-  name: string;
+  full_name: string;
   is_active: boolean;
+  is_superuser: boolean;
   created_at: string;
   updated_at: string;
-  roles: string[];
+  roles: Role[];
 } 

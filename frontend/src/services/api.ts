@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosHeaders } from 'axios';
+import axios, { AxiosError, AxiosInstance, AxiosResponse } from 'axios';
+import { showToast } from '../components/Toast';
 import useStore from '../store/useStore';
 import { ApiResponse } from '../types';
 
@@ -12,14 +13,12 @@ const api: AxiosInstance = axios.create({
     },
 });
 
-// Request interceptor for adding auth token
+// Request interceptor
 api.interceptors.request.use(
-    (config: InternalAxiosRequestConfig) => {
+    (config) => {
         const token = localStorage.getItem('token');
         if (token) {
-            const headers = new AxiosHeaders(config.headers);
-            headers.set('Authorization', `Bearer ${token}`);
-            config.headers = headers;
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
@@ -28,49 +27,58 @@ api.interceptors.request.use(
     }
 );
 
-// Response interceptor for handling errors and token refresh
+// Response interceptor
 api.interceptors.response.use(
     (response: AxiosResponse) => response,
-    async (error) => {
-        const originalRequest = error.config;
-
-        // If the error is 401 and we haven't tried to refresh the token yet
-        if (error.response?.status === 401 && !originalRequest._retry) {
-            originalRequest._retry = true;
-
-            try {
-                const refreshToken = localStorage.getItem('refreshToken');
-                const response = await axios.post(`${API_URL}/auth/refresh`, {
-                    refresh_token: refreshToken,
-                });
-
-                const { access_token } = response.data;
-                localStorage.setItem('token', access_token);
-
-                // Retry the original request with the new token
-                originalRequest.headers.Authorization = `Bearer ${access_token}`;
-                return api(originalRequest);
-            } catch (refreshError) {
-                // If refresh token fails, logout the user
-                localStorage.removeItem('token');
-                localStorage.removeItem('refreshToken');
-                window.location.href = '/login';
-                return Promise.reject(refreshError);
+    (error: AxiosError) => {
+        if (error.response) {
+            const { status, data } = error.response;
+            
+            switch (status) {
+                case 401:
+                    showToast({
+                        message: 'Unauthorized access. Please login again.',
+                        type: 'error',
+                    });
+                    // Redirect to login
+                    window.location.href = '/login';
+                    break;
+                case 403:
+                    showToast({
+                        message: 'You do not have permission to perform this action.',
+                        type: 'error',
+                    });
+                    break;
+                case 404:
+                    showToast({
+                        message: 'The requested resource was not found.',
+                        type: 'error',
+                    });
+                    break;
+                case 500:
+                    showToast({
+                        message: 'An internal server error occurred.',
+                        type: 'error',
+                    });
+                    break;
+                default:
+                    showToast({
+                        message: (data as any)?.message || 'An error occurred',
+                        type: 'error',
+                    });
             }
+        } else if (error.request) {
+            showToast({
+                message: 'No response received from server. Please check your connection.',
+                type: 'error',
+            });
+        } else {
+            showToast({
+                message: 'An error occurred while setting up the request.',
+                type: 'error',
+            });
         }
-
-        // Handle other errors
-        if (error.response?.status === 403) {
-            // Handle forbidden access
-            console.error('Access forbidden');
-        } else if (error.response?.status === 404) {
-            // Handle not found
-            console.error('Resource not found');
-        } else if (error.response?.status === 500) {
-            // Handle server error
-            console.error('Server error');
-        }
-
+        
         return Promise.reject(error);
     }
 );

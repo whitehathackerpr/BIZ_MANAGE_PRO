@@ -177,6 +177,7 @@ button:disabled {
 .auth-layout {
   min-height: 100vh;
   display: flex;
+  width: 100%;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -209,8 +210,14 @@ button:disabled {
 
 .auth-content {
   width: 100%;
-  max-width: 450px;
+  max-width: 60%;
+  margin-left: 20%;
+  margin-right: 20%;
   z-index: 1;
+}
+.marginx {
+  margin-top: 5%;
+  margin-bottom: 5%;
 }
 
 .auth-footer {

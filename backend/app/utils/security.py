@@ -14,7 +14,7 @@ def generate_reset_token(user_id: int) -> str:
     Returns:
         A secure token that can be used in URLs
     """
-    serializer = URLSafeTimedSerializer(settings.secret_key)
+    serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
     return serializer.dumps(str(user_id), salt='reset-token-salt')
 
 def verify_reset_token(token: str, expiration: int = 3600) -> Optional[int]:
@@ -27,7 +27,7 @@ def verify_reset_token(token: str, expiration: int = 3600) -> Optional[int]:
     Returns:
         The user ID if the token is valid, None otherwise
     """
-    serializer = URLSafeTimedSerializer(settings.secret_key)
+    serializer = URLSafeTimedSerializer(settings.SECRET_KEY)
     try:
         user_id = serializer.loads(
             token, 

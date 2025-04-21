@@ -1,6 +1,7 @@
 # Import all models here
-from .user import User
+from .user import User, user_role, user_permission
 from .role import Role
+from .permission import Permission
 from .branch import Branch
 from .product import Product, Category, ProductImage, ProductVariant
 from .order import Order, OrderItem, Payment
@@ -18,7 +19,10 @@ from .customer import Customer
 
 __all__ = [
     'User',
+    'user_role',
+    'user_permission',
     'Role',
+    'Permission',
     'Branch',
     'Product',
     'Category',

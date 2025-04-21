@@ -12,6 +12,14 @@ from .db.session import SessionLocal, engine
 from .db.init_db import init_db
 from .core.rate_limit import RateLimitMiddleware
 from .core.security_middleware import ContentSecurityPolicyMiddleware, SecurityMiddleware
+from .core.error_handlers import (
+    http_exception_handler,
+    validation_exception_handler,
+    sqlalchemy_exception_handler,
+    business_exception_handler,
+    general_exception_handler,
+    BusinessException
+)
 from .db.base import Base
 
 # Create database tables
@@ -27,13 +35,22 @@ app = FastAPI(
     redoc_url=None,  # Disable default redoc
 )
 
-# Add CORS middleware
+# Add exception handlers
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(ValidationError, validation_exception_handler)
+app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
+app.add_exception_handler(BusinessException, business_exception_handler)
+app.add_exception_handler(Exception, general_exception_handler)
+
+# Add CORS middleware with proper configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Frontend origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # Explicitly list allowed methods
+    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],  # Explicitly list allowed headers
+    expose_headers=["Content-Type", "Authorization", "X-Total-Count"],  # Explicitly list exposed headers
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 # Add security middleware

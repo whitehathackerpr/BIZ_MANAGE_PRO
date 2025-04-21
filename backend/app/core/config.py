@@ -17,12 +17,13 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     SECRET_KEY: str = Field(default="dev_secret_key_change_in_production")
     API_V1_STR: str = "/api/v1"
+    FRONTEND_URL: str = Field(default="http://localhost:5173", description="Frontend application URL")
 
     # Server Settings
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     ALLOWED_ORIGINS: List[str] = Field(
-        default=["http://localhost:5173", "http://localhost:5174"],
+        default=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
         description="JSON list of allowed origins"
     )
     SSL_KEYFILE: Optional[str] = None
@@ -30,8 +31,10 @@ class Settings(BaseSettings):
 
     # Database Settings
     DATABASE_URL: Union[PostgresDsn, str] = Field(default="sqlite:///./biz_manage.db")
-    DB_POOL_SIZE: int = 5
-    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
+    DB_POOL_RECYCLE: int = 3600
 
     # Redis Settings
     REDIS_HOST: str = "localhost"
@@ -72,7 +75,7 @@ class Settings(BaseSettings):
 
     # Security Settings
     CORS_ORIGINS: List[str] = Field(
-        default=["http://localhost:5173", "http://localhost:5174"],
+        default=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
         description="JSON list of allowed CORS origins"
     )
     RATE_LIMIT_PER_MINUTE: int = 60

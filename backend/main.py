@@ -36,12 +36,22 @@ from app.config import settings
 from app.extensions import engine, Base
 from contextlib import asynccontextmanager
 
-# Import models to ensure they are registered with SQLAlchemy
-from app.models import (
-    User, Role, Branch, Product, Category, Sale, SaleItem,
-    Employee, Attendance, PerformanceReview, Transaction,
-    Business, SystemSetting, Notification, NotificationSetting
-)
+# Import all models to ensure they are registered with SQLAlchemy
+from app.models.user import User, user_role, user_permission
+from app.models.role import Role
+from app.models.permission import Permission
+from app.models.branch import Branch
+from app.models.product import Product
+from app.models.sale import Sale, SaleItem
+from app.models.employee import Employee
+from app.models.transaction import Transaction
+from app.models.settings import Business, SystemSetting
+from app.models.notification import Notification, NotificationSetting
+from app.models.customer import Customer
+from app.models.supplier import Supplier
+from app.models.address import Address
+from app.models.order import Order
+from app.models.integration import IntegrationProvider, IntegrationInstance, IntegrationLog
 
 # Import the Flask app factory to integrate with FastAPI
 from app import create_app as create_flask_app
@@ -71,7 +81,18 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up BIZ_MANAGE_PRO API")
+    
+    # Initialize database tables
+    logger.info("Creating database tables...")
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database tables: {str(e)}")
+        raise
+    
     yield
+    
     # Shutdown
     logger.info("Shutting down BIZ_MANAGE_PRO API")
 
@@ -116,10 +137,12 @@ REQUEST_LATENCY = Histogram(
 # Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Type", "Authorization", "X-Total-Count"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
@@ -218,9 +241,6 @@ init_directories()
 # Mount static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
 
 # Merge FastAPI apps
 # This allows us to combine both FastAPI applications by including all routes

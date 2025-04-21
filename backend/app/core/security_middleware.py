@@ -47,8 +47,12 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
+        
+        # Only add security headers if they're not already set
         for header, value in self.security_headers.items():
-            response.headers[header] = value
+            if header not in response.headers:
+                response.headers[header] = value
+                
         return response
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

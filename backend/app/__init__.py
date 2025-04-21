@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
     # Include routers dynamically
     try:
         from app.routes import auth
-        app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+        app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
         logging.info("Loaded auth routes")
     except ImportError as e:
         logging.warning(f"Could not load auth routes: {str(e)}")

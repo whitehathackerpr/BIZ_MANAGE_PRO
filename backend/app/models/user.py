@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from ..db.base_class import Base
+from app.db import Base
 
 # Association table for user-role many-to-many relationship
 user_role = Table(
@@ -11,6 +11,14 @@ user_role = Table(
     Base.metadata,
     Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
     Column('role_id', Integer, ForeignKey('roles.id'), primary_key=True)
+)
+
+# Association table for user-permission many-to-many relationship
+user_permission = Table(
+    'user_permission',
+    Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('permission_id', Integer, ForeignKey('permissions.id'), primary_key=True)
 )
 
 class User(Base):
@@ -32,7 +40,7 @@ class User(Base):
     roles = relationship("Role", secondary=user_role, back_populates="users")
     profile = relationship('UserProfile', backref='user', uselist=False)
     notifications = relationship('Notification', backref='user', lazy='dynamic')
-    permissions = relationship("Permission", secondary="user_permission", back_populates="users")
+    permissions = relationship("Permission", secondary=user_permission, back_populates="users")
     
     def __init__(self, email, password=None, full_name=None, is_active=True, is_superuser=False):
         self.email = email
@@ -41,6 +49,8 @@ class User(Base):
         self.full_name = full_name
         self.is_active = is_active
         self.is_superuser = is_superuser
+        self.created_at = datetime.now(UTC)
+        self.updated_at = datetime.now(UTC)
     
     def set_password(self, password):
         """

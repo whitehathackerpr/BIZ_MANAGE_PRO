@@ -1,7 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { authService } from '../services/authService';
-import { User } from '../types/auth';
-import { LoginCredentials, RegisterRequest } from '../types/auth';
+import { User, UserRole, LoginCredentials, RegisterRequest } from '../types/auth';
 import { AxiosError } from 'axios';
 
 interface AuthContextType {
@@ -25,104 +24,116 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   // Initialize auth state on component mount
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedUser = authService.getUser();
-      if (storedUser && authService.isAuthenticated()) {
-        try {
-          // Verify the token is still valid by getting current user
-          const currentUser = await authService.getCurrentUser();
-          setUser(currentUser as User);
-        } catch (err) {
-          // If token is invalid, clear stored data
-          await authService.logout();
+      try {
+        const storedUser = authService.getUser();
+        const isAuth = authService.isAuthenticated();
+        
+        if (storedUser && isAuth) {
+          try {
+            // Verify the token is still valid by getting current user
+            const currentUser = await authService.getCurrentUser();
+            setUser(currentUser as User);
+            setIsAuthenticated(true);
+          } catch (err) {
+            console.error('Error getting current user:', err);
+            // If token is invalid, clear stored data
+            await authService.logout();
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } else {
           setUser(null);
+          setIsAuthenticated(false);
         }
-      } else {
+      } catch (err) {
+        console.error('Error during auth initialization:', err);
         setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-      setIsInitialized(true);
     };
 
     initializeAuth();
   }, []);
 
-  const login = async (credentials: LoginCredentials): Promise<void> => {
-    setLoading(true);
-    setError(null);
-    
+  const login = async (credentials: LoginCredentials) => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await authService.login(credentials);
-      setUser(response.user as User);
+      setUser(response.user);
+      setIsAuthenticated(true);
     } catch (err) {
-      if (err instanceof AxiosError && err.response) {
-        setError(err.response.data.message || 'Login failed. Please check your credentials.');
-      } else {
-        setError('An unexpected error occurred. Please try again later.');
-      }
+      setError(err instanceof Error ? err.message : 'Login failed');
       throw err;
     } finally {
       setLoading(false);
     }
   };
 
-  const register = async (userData: RegisterRequest): Promise<void> => {
-    setLoading(true);
-    setError(null);
-    
+  const logout = async () => {
     try {
-      const response = await authService.register(userData);
-      setUser(response.user as User);
-    } catch (err) {
-      if (err instanceof AxiosError && err.response) {
-        setError(err.response.data.message || 'Registration failed. Please try again.');
-      } else {
-        setError('An unexpected error occurred. Please try again later.');
-      }
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logout = async (): Promise<void> => {
-    setLoading(true);
-    
-    try {
+      setLoading(true);
       await authService.logout();
       setUser(null);
+      setIsAuthenticated(false);
     } catch (err) {
-      console.error('Logout error:', err);
+      setError(err instanceof Error ? err.message : 'Logout failed');
     } finally {
       setLoading(false);
     }
   };
 
-  const clearError = (): void => {
-    setError(null);
+  const register = async (userData: RegisterRequest) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await authService.register(userData);
+      // Create a User object from the RegisterResponse
+      const user: User = {
+        id: response.id,
+        email: response.email,
+        full_name: response.full_name,
+        is_active: response.is_active,
+        is_superuser: response.is_superuser,
+        created_at: response.created_at,
+        updated_at: response.updated_at,
+        roles: response.roles
+      };
+      setUser(user);
+      setIsAuthenticated(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Registration failed');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Don't render children until auth is initialized to prevent flashing content
-  if (!isInitialized) {
-    return <div className="auth-loading">Initializing application...</div>;
-  }
+  const clearError = () => setError(null);
 
-  const value = {
-    user,
-    loading,
-    error,
-    isAuthenticated: !!user,
-    login,
-    register,
-    logout,
-    clearError,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isAuthenticated,
+        login,
+        logout,
+        register,
+        clearError,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {

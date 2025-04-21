@@ -8,7 +8,7 @@ import axios, {
   AxiosResponse,
   AxiosRequestConfig
 } from 'axios';
-import { TokenResponse } from '../types/api/responses/auth';
+import { TokenResponse, RefreshTokenResponse } from '../types/api/responses/auth';
 import { message } from 'antd';
 
 // Define custom type for ImportMeta.env
@@ -17,10 +17,12 @@ interface ImportMetaEnv {
 }
 
 // Get API URL from environment variables or use default
-const baseURL = (import.meta.env as ImportMetaEnv).VITE_API_URL || 'http://localhost:8000/api';
+const baseURL = (import.meta.env as ImportMetaEnv).VITE_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiClient {
   private api: AxiosInstance;
+  private tokenKey = 'token';
+  private refreshTokenKey = 'refresh_token';
 
   constructor() {
     this.api = axios.create({
@@ -33,11 +35,16 @@ class ApiClient {
     this.setupInterceptors();
   }
 
+  // Expose the underlying Axios instance
+  public get axiosInstance(): AxiosInstance {
+    return this.api;
+  }
+
   private setupInterceptors(): void {
     // Request interceptor
     this.api.interceptors.request.use(
       (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem(this.tokenKey);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -52,27 +59,30 @@ class ApiClient {
     this.api.interceptors.response.use(
       (response: AxiosResponse): AxiosResponse => response,
       async (error: AxiosError): Promise<any> => {
-        const originalRequest = error.config;
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         // Handle token refresh
-        if (error.response?.status === 401 && !originalRequest._retry) {
+        if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
           originalRequest._retry = true;
 
           try {
-            const refreshToken = localStorage.getItem('refreshToken');
-            const response = await axios.post(`${baseURL}/auth/refresh`, {
+            const refreshToken = localStorage.getItem(this.refreshTokenKey);
+            if (!refreshToken) {
+              throw new Error('No refresh token available');
+            }
+
+            const response = await axios.post<RefreshTokenResponse>(`${baseURL}/auth/refresh`, {
               refresh_token: refreshToken,
             });
 
-            const { access_token } = response.data;
-            localStorage.setItem('token', access_token);
+            const { accessToken } = response.data.tokens;
+            localStorage.setItem(this.tokenKey, accessToken);
 
-            originalRequest.headers.Authorization = `Bearer ${access_token}`;
+            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
             return this.api(originalRequest);
           } catch (refreshError) {
             // If refresh fails, logout user
-            localStorage.removeItem('token');
-            localStorage.removeItem('refreshToken');
+            this.clearAuthToken();
             window.location.href = '/login';
             return Promise.reject(refreshError);
           }
@@ -86,8 +96,18 @@ class ApiClient {
   }
 
   private handleError(error: any): void {
-    const errorMessage = error.response?.data?.message || 'An error occurred';
-    message.error(errorMessage);
+    console.error('API Error:', error);
+    if (error.response) {
+      console.error('Error response:', error.response.data);
+      const errorMessage = error.response.data.detail || error.response.data.message || 'An error occurred';
+      message.error(errorMessage);
+    } else if (error.request) {
+      console.error('Error request:', error.request);
+      message.error('No response received from server');
+    } else {
+      console.error('Error message:', error.message);
+      message.error('An error occurred while setting up the request');
+    }
 
     if (error.response?.status === 403) {
       message.error('You do not have permission to perform this action');
@@ -160,16 +180,16 @@ class ApiClient {
   }
 
   public setAuthToken(token: string): void {
-    localStorage.setItem('token', token);
+    localStorage.setItem(this.tokenKey, token);
   }
 
   public clearAuthToken(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
+    localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem(this.refreshTokenKey);
   }
 
   public isAuthenticated(): boolean {
-    return !!localStorage.getItem('token');
+    return !!localStorage.getItem(this.tokenKey);
   }
 }
 
