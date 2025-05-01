@@ -1,6 +1,6 @@
 # 🚀 Business Management System (BIZ_MANAGE_PRO)
 
-A modern, full-stack business management system with a Web3-inspired design, real-time features, and advanced analytics.
+A comprehensive business management system built with FastAPI and React, designed to handle all aspects of business operations.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
