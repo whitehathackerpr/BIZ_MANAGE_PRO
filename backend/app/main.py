@@ -42,16 +42,15 @@ app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
 app.add_exception_handler(BusinessException, business_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
 
-# Add CORS middleware with proper configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Frontend origins
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],  # Explicitly list allowed methods
-    allow_headers=["Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With"],  # Explicitly list allowed headers
-    expose_headers=["Content-Type", "Authorization", "X-Total-Count"],  # Explicitly list exposed headers
-    max_age=600,  # Cache preflight requests for 10 minutes
-)
+# Set CORS middleware
+if settings.BACKEND_CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # Add security middleware
 app.add_middleware(ContentSecurityPolicyMiddleware)
@@ -167,4 +166,19 @@ async def custom_swagger_ui_html():
         swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
         swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
         swagger_favicon_url="https://fastapi.tiangolo.com/img/favicon.png",
-    ) 
+    )
+
+@app.get("/")
+def root():
+    """
+    Root endpoint - Health check
+    """
+    return {
+        "status": "ok",
+        "message": "BIZ_MANAGE_PRO API is running",
+        "version": "1.0.0",
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000) 

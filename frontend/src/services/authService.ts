@@ -1,13 +1,16 @@
 import apiClient from './apiClient';
 import type { User, LoginCredentials, LoginResponse, RegisterRequest, RegisterResponse, UserRole, Role } from '../types/auth';
+import { jwtDecode } from 'jwt-decode';
 
 // Define custom type for ImportMeta.env
 interface ImportMetaEnv {
   VITE_API_URL?: string;
+  VITE_TOKEN_REFRESH_THRESHOLD?: string;
 }
 
 // Get API URL from environment variables or use default
 const baseURL = (import.meta.env as ImportMetaEnv).VITE_API_URL || 'http://localhost:8000/api/v1';
+const TOKEN_REFRESH_THRESHOLD = parseInt((import.meta.env as ImportMetaEnv).VITE_TOKEN_REFRESH_THRESHOLD || '300', 10); // 5 minutes in seconds
 
 class AuthService {
   private baseUrl = `${baseURL}/auth`;
@@ -43,24 +46,63 @@ class AuthService {
 
   async logout(): Promise<void> {
     try {
-      await apiClient.post(`${this.baseUrl}/logout`);
+      const token = this.getToken();
+      if (token) {
+        await apiClient.post(`${this.baseUrl}/logout`, {}, {
+          headers: {
+            'X-CSRF-Token': this.generateCSRFToken(),
+          }
+        });
+      }
     } finally {
       this.clearSession();
     }
   }
 
   async getCurrentUser(): Promise<User> {
+    await this.checkTokenExpiration();
     const response = await apiClient.get<User>(`${this.baseUrl}/me`);
     return response;
   }
 
   async refreshToken(): Promise<{ token: string }> {
-    const refresh_token = localStorage.getItem(this.refreshTokenKey);
-    const response = await apiClient.post<{ token: string }>(`${this.baseUrl}/refresh`, {
-      refresh_token,
-    });
-    localStorage.setItem(this.tokenKey, response.token);
-    return response;
+    const refresh_token = this.getRefreshToken();
+    if (!refresh_token) {
+      throw new Error('No refresh token available');
+    }
+
+    try {
+      const response = await apiClient.post<{ token: string }>(`${this.baseUrl}/refresh`, {
+        refresh_token,
+      }, {
+        headers: {
+          'X-CSRF-Token': this.generateCSRFToken(),
+        }
+      });
+      
+      this.setToken(response.token);
+      return response;
+    } catch (error) {
+      this.clearSession();
+      throw error;
+    }
+  }
+
+  private async checkTokenExpiration(): Promise<void> {
+    const token = this.getToken();
+    if (!token) return;
+
+    try {
+      const decoded = jwtDecode<{ exp: number }>(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      
+      if (decoded.exp - currentTime < TOKEN_REFRESH_THRESHOLD) {
+        await this.refreshToken();
+      }
+    } catch (error) {
+      console.error('Error checking token expiration:', error);
+      this.clearSession();
+    }
   }
 
   async updateProfile(data: Partial<User>): Promise<User> {
@@ -91,7 +133,16 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getToken() && !!this.getUser();
+    const token = this.getToken();
+    if (!token) return false;
+
+    try {
+      const decoded = jwtDecode<{ exp: number }>(token);
+      const currentTime = Math.floor(Date.now() / 1000);
+      return decoded.exp > currentTime;
+    } catch {
+      return false;
+    }
   }
 
   getToken(): string | null {
@@ -129,36 +180,16 @@ class AuthService {
   private setSession(response: LoginResponse): void {
     console.log('Setting session with response:', response);
     
-    if (!response.access_token || !response.refresh_token) {
-      console.error('Invalid login response: missing tokens');
+    if (!response.access_token || !response.refresh_token || !response.user) {
+      console.error('Invalid login response: missing tokens or user data');
       throw new Error('Invalid login response');
     }
     
-    // Set tokens in localStorage
-    localStorage.setItem(this.tokenKey, response.access_token);
-    localStorage.setItem(this.refreshTokenKey, response.refresh_token);
+    this.setToken(response.access_token);
+    this.setRefreshToken(response.refresh_token);
+    this.setUser(response.user);
     
-    // Set authorization header in apiClient
     apiClient.axiosInstance.defaults.headers.common['Authorization'] = `Bearer ${response.access_token}`;
-    
-    // Ensure user data is properly set
-    if (response.user) {
-      const userData = {
-        id: response.user.id,
-        email: response.user.email,
-        full_name: response.user.full_name,
-        is_active: response.user.is_active,
-        is_superuser: response.user.is_superuser,
-        created_at: response.user.created_at,
-        updated_at: response.user.updated_at,
-        roles: response.user.roles || [],
-        profile: response.user.profile
-      };
-      localStorage.setItem(this.userKey, JSON.stringify(userData));
-    } else {
-      console.error('Invalid login response: missing user data');
-      throw new Error('Invalid login response: missing user data');
-    }
   }
 
   private clearSession(): void {
@@ -168,8 +199,21 @@ class AuthService {
     delete apiClient.axiosInstance.defaults.headers.common['Authorization'];
   }
 
+  private setToken(token: string): void {
+    localStorage.setItem(this.tokenKey, token);
+  }
+
+  private setRefreshToken(token: string): void {
+    localStorage.setItem(this.refreshTokenKey, token);
+  }
+
   private setUser(user: User): void {
     localStorage.setItem(this.userKey, JSON.stringify(user));
+  }
+
+  private generateCSRFToken(): string {
+    // Generate a random token for CSRF protection
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
   }
 }
 

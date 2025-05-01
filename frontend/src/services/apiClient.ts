@@ -9,27 +9,42 @@ import axios, {
   AxiosRequestConfig
 } from 'axios';
 import { TokenResponse, RefreshTokenResponse } from '../types/api/responses/auth';
-import { message } from 'antd';
+
+// Extend AxiosRequestConfig to include metadata
+interface ExtendedAxiosRequestConfig extends InternalAxiosRequestConfig {
+  metadata?: {
+    startTime: Date;
+  };
+}
 
 // Define custom type for ImportMeta.env
 interface ImportMetaEnv {
   VITE_API_URL?: string;
+  VITE_API_TIMEOUT?: string;
+  VITE_MAX_RETRIES?: string;
 }
 
 // Get API URL from environment variables or use default
 const baseURL = (import.meta.env as ImportMetaEnv).VITE_API_URL || 'http://localhost:8000/api/v1';
+const API_TIMEOUT = parseInt((import.meta.env as ImportMetaEnv).VITE_API_TIMEOUT || '30000', 10);
+const MAX_RETRIES = parseInt((import.meta.env as ImportMetaEnv).VITE_MAX_RETRIES || '3', 10);
 
 class ApiClient {
   private api: AxiosInstance;
   private tokenKey = 'token';
   private refreshTokenKey = 'refresh_token';
+  private csrfToken: string | null = null;
+  private retryCount: number = 0;
+  private rateLimitResetTime: number | null = null;
 
   constructor() {
     this.api = axios.create({
       baseURL,
+      timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
       },
+      withCredentials: true, // Enable sending cookies with requests
     });
 
     this.setupInterceptors();
@@ -43,11 +58,25 @@ class ApiClient {
   private setupInterceptors(): void {
     // Request interceptor
     this.api.interceptors.request.use(
-      (config: InternalAxiosRequestConfig): InternalAxiosRequestConfig => {
+      (config: ExtendedAxiosRequestConfig): ExtendedAxiosRequestConfig => {
+        // Check rate limit before making request
+        if (this.rateLimitResetTime && Date.now() < this.rateLimitResetTime) {
+          throw new Error('Rate limit exceeded. Please try again later.');
+        }
+
         const token = localStorage.getItem(this.tokenKey);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+
+        // Add CSRF token if available
+        if (this.csrfToken) {
+          config.headers['X-CSRF-Token'] = this.csrfToken;
+        }
+
+        // Add request timestamp for timeout handling
+        config.metadata = { startTime: new Date() };
+
         return config;
       },
       (error: AxiosError): Promise<AxiosError> => {
@@ -57,23 +86,54 @@ class ApiClient {
 
     // Response interceptor
     this.api.interceptors.response.use(
-      (response: AxiosResponse): AxiosResponse => response,
+      (response: AxiosResponse): AxiosResponse => {
+        // Reset retry count on successful response
+        this.retryCount = 0;
+
+        // Store CSRF token if provided
+        const csrfToken = response.headers['x-csrf-token'];
+        if (csrfToken) {
+          this.csrfToken = csrfToken;
+        }
+
+        return response;
+      },
       async (error: AxiosError): Promise<any> => {
-        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+        const originalRequest = error.config as ExtendedAxiosRequestConfig & { _retry?: boolean };
+
+        // Handle rate limiting
+        if (error.response?.status === 429) {
+          const resetTime = error.response.headers['x-ratelimit-reset'];
+          if (resetTime) {
+            this.rateLimitResetTime = parseInt(resetTime, 10) * 1000; // Convert to milliseconds
+            const waitTime = Math.ceil((this.rateLimitResetTime - Date.now()) / 1000);
+            console.error(`Rate limit exceeded. Please try again in ${waitTime} seconds.`);
+          }
+          return Promise.reject(error);
+        }
 
         // Handle token refresh
         if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
-          originalRequest._retry = true;
+          if (this.retryCount >= MAX_RETRIES) {
+            this.clearAuthToken();
+            window.location.href = '/login';
+            return Promise.reject(new Error('Maximum retry attempts exceeded'));
+          }
 
           try {
+            originalRequest._retry = true;
+            this.retryCount++;
+
             const refreshToken = localStorage.getItem(this.refreshTokenKey);
             if (!refreshToken) {
               throw new Error('No refresh token available');
             }
 
-            const response = await axios.post<RefreshTokenResponse>(`${baseURL}/auth/refresh`, {
-              refresh_token: refreshToken,
-            });
+            const response = await axios.post<RefreshTokenResponse>(
+              `${baseURL}/auth/refresh`,
+              { refresh_token: refreshToken },
+              { headers: { 'X-CSRF-Token': this.csrfToken || '' } }
+            );
 
             const { accessToken } = response.data.tokens;
             localStorage.setItem(this.tokenKey, accessToken);
@@ -81,10 +141,18 @@ class ApiClient {
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
             return this.api(originalRequest);
           } catch (refreshError) {
-            // If refresh fails, logout user
             this.clearAuthToken();
             window.location.href = '/login';
             return Promise.reject(refreshError);
+          }
+        }
+
+        // Handle request timeout
+        if (error.code === 'ECONNABORTED' && originalRequest) {
+          const startTime = originalRequest.metadata?.startTime;
+          if (startTime) {
+            const timeElapsed = new Date().getTime() - startTime.getTime();
+            console.error(`Request timed out after ${timeElapsed}ms:`, originalRequest.url);
           }
         }
 
@@ -96,25 +164,45 @@ class ApiClient {
   }
 
   private handleError(error: any): void {
-    console.error('API Error:', error);
     if (error.response) {
-      console.error('Error response:', error.response.data);
+      const status = error.response.status;
       const errorMessage = error.response.data.detail || error.response.data.message || 'An error occurred';
-      message.error(errorMessage);
-    } else if (error.request) {
-      console.error('Error request:', error.request);
-      message.error('No response received from server');
-    } else {
-      console.error('Error message:', error.message);
-      message.error('An error occurred while setting up the request');
-    }
 
-    if (error.response?.status === 403) {
-      message.error('You do not have permission to perform this action');
-    } else if (error.response?.status === 404) {
-      message.error('Resource not found');
-    } else if (error.response?.status === 500) {
-      message.error('Internal server error');
+      switch (status) {
+        case 400:
+          console.error('Invalid request. Please check your input.');
+          break;
+        case 403:
+          console.error('You do not have permission to perform this action');
+          break;
+        case 404:
+          console.error('Resource not found');
+          break;
+        case 422:
+          console.error('Validation error. Please check your input.');
+          break;
+        case 429:
+          // Rate limit error handled in interceptor
+          break;
+        case 500:
+          console.error('Internal server error. Please try again later.');
+          break;
+        default:
+          console.error(errorMessage);
+      }
+
+      console.error('API Error Response:', {
+        status,
+        url: error.config?.url,
+        message: errorMessage,
+        data: error.response.data
+      });
+    } else if (error.request) {
+      console.error('No response received from server. Please check your connection.');
+      console.error('API Request Error:', error.request);
+    } else {
+      console.error('An error occurred while setting up the request');
+      console.error('API Error:', error.message);
     }
   }
 
@@ -186,6 +274,7 @@ class ApiClient {
   public clearAuthToken(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.refreshTokenKey);
+    this.csrfToken = null;
   }
 
   public isAuthenticated(): boolean {
