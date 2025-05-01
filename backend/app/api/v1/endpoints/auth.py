@@ -14,12 +14,20 @@ from app.schemas.auth import Token, TokenPayload, UserCreate, UserResponse
 from app.schemas.user import User as UserSchema
 from app.core.config import settings
 from app.crud import user as crud
+from app.api import deps
+from app.core import security
+from app.core.security import get_password_hash
+from app.utils import (
+    generate_password_reset_token,
+    verify_password_reset_token,
+    send_reset_password_email,
+)
 
 router = APIRouter()
 
 @router.post("/login", response_model=Token)
 async def login(
-    db: Session = Depends(get_db),
+    db: Session = Depends(deps.get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
@@ -67,17 +75,17 @@ async def login(
 @router.post("/register", response_model=UserResponse)
 async def register(
     *,
-    db: Session = Depends(get_db),
+    db: Session = Depends(deps.get_db),
     user_in: UserCreate,
 ) -> Any:
     """
-    Create new user.
+    Register new user.
     """
     user = crud.get_by_email(db, email=user_in.email)
     if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The user with this email already exists in the system.",
+            detail="A user with this email already exists.",
         )
     user = crud.create(db, obj_in=user_in)
     
@@ -96,7 +104,7 @@ async def read_users_me(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
-    db: Session = Depends(get_db),
+    db: Session = Depends(deps.get_db),
     current_user: User = Depends(get_current_user),
 ) -> Any:
     """
@@ -130,7 +138,7 @@ async def refresh_token(
 @router.put("/me", response_model=UserSchema)
 async def update_user_me(
     *,
-    db: Session = Depends(get_db),
+    db: Session = Depends(deps.get_db),
     user_in: UserCreate,
     current_user: User = Depends(get_current_user),
 ) -> Any:
@@ -138,4 +146,52 @@ async def update_user_me(
     Update own user.
     """
     user = crud.update(db, db_obj=current_user, obj_in=user_in)
-    return user 
+    return user
+
+@router.post("/password-reset", response_model=schemas.Msg)
+def request_password_reset(
+    email: str,
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    Password recovery.
+    """
+    user = crud.get_by_email(db, email=email)
+    if user:
+        password_reset_token = generate_password_reset_token(email=email)
+        send_reset_password_email(
+            email_to=user.email, token=password_reset_token, username=user.full_name
+        )
+    return {"msg": "Password reset email sent"}
+
+@router.post("/reset-password", response_model=schemas.Msg)
+def reset_password(
+    token: str,
+    new_password: str,
+    db: Session = Depends(deps.get_db),
+) -> Any:
+    """
+    Reset password.
+    """
+    email = verify_password_reset_token(token)
+    if not email:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid token",
+        )
+    user = crud.get_by_email(db, email=email)
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=400,
+            detail="Inactive user",
+        )
+    hashed_password = get_password_hash(new_password)
+    user.password_hash = hashed_password
+    db.add(user)
+    db.commit()
+    return {"msg": "Password updated successfully"} 

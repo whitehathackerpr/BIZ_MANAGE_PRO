@@ -1,10 +1,11 @@
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import Column, Integer, String, Text, Float, Boolean, ForeignKey, Numeric, JSON, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Text, Float, Boolean, ForeignKey, Numeric, JSON, DateTime, Enum, Table
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.sql import func
 from ..extensions import Base
 import enum
+from typing import List
 
 class ProductStatus(enum.Enum):
     ACTIVE = "active"
@@ -50,6 +51,14 @@ class Category(Base):
     def __repr__(self):
         return f'<Category {self.name}>'
 
+# Association table for customer preferred products
+customer_preferred_products = Table(
+    'customer_preferred_products',
+    Base.metadata,
+    Column('customer_id', Integer, ForeignKey('users.id')),
+    Column('product_id', Integer, ForeignKey('products.id'))
+)
+
 class Product(Base):
     """
     Product model for managing products in the system.
@@ -78,6 +87,8 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
+    business_id = Column(Integer, ForeignKey('businesses.id'), nullable=False)
+    supplier_id = Column(Integer, ForeignKey('users.id'))
     name = Column(String(255), nullable=False, index=True)
     sku = Column(String(50), unique=True, index=True, nullable=False)
     description = Column(Text)
@@ -92,17 +103,17 @@ class Product(Base):
     barcode = Column(String(50), unique=True, index=True)
     weight = Column(Float)
     dimensions = Column(String(50))
-    created_at = Column(DateTime, default=func.current_timestamp())
-    updated_at = Column(DateTime, default=func.current_timestamp(), onupdate=func.current_timestamp())
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Foreign keys
     branch_id = Column(Integer, ForeignKey("branches.id"))
-    supplier_id = Column(Integer, ForeignKey("suppliers.id"))
     
     # Relationships
     branch = relationship("Branch", back_populates="products")
-    supplier = relationship("Supplier", back_populates="products")
-    inventory_transactions = relationship("InventoryTransaction", back_populates="product")
+    supplier = relationship("User", back_populates="supplied_products")
+    inventory_items = relationship("Inventory", back_populates="product", cascade='all, delete-orphan')
+    preferred_by_customers = relationship("User", secondary=customer_preferred_products)
     sales_items = relationship("SaleItem", back_populates="product")
     
     def __init__(
@@ -121,7 +132,7 @@ class Product(Base):
         barcode: str = None,
         weight: float = None,
         dimensions: str = None,
-        branch_id: int = None,
+        business_id: int = None,
         supplier_id: int = None
     ):
         self.name = name
@@ -138,7 +149,7 @@ class Product(Base):
         self.barcode = barcode
         self.weight = weight
         self.dimensions = dimensions
-        self.branch_id = branch_id
+        self.business_id = business_id
         self.supplier_id = supplier_id
     
     def to_dict(self):
@@ -150,6 +161,8 @@ class Product(Base):
         """
         return {
             'id': self.id,
+            'business_id': self.business_id,
+            'supplier_id': self.supplier_id,
             'name': self.name,
             'sku': self.sku,
             'description': self.description,
@@ -164,10 +177,10 @@ class Product(Base):
             'barcode': self.barcode,
             'weight': self.weight,
             'dimensions': self.dimensions,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat(),
-            'branch_id': self.branch_id,
-            'supplier_id': self.supplier_id
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'total_stock': self.get_total_stock(),
+            'profit_margin': self.get_profit_margin()
         }
     
     def update_quantity(self, amount: int) -> bool:
@@ -206,6 +219,25 @@ class Product(Base):
     
     def __repr__(self):
         return f'<Product {self.name} ({self.sku})>'
+
+    def get_profit_margin(self) -> float:
+        """Calculate profit margin percentage"""
+        if self.cost > 0:
+            return ((self.price - self.cost) / self.cost) * 100
+        return 0
+
+    def get_total_stock(self) -> int:
+        """Get total stock across all branches"""
+        return sum(item.quantity for item in self.inventory_items)
+
+    def get_stock_by_branch(self, branch_id: int) -> int:
+        """Get stock level for a specific branch"""
+        inventory_item = next((item for item in self.inventory_items if item.branch_id == branch_id), None)
+        return inventory_item.quantity if inventory_item else 0
+
+    def is_low_stock(self, threshold: int = 10) -> bool:
+        """Check if product is low in stock"""
+        return self.get_total_stock() <= threshold
 
 class ProductImage(Base):
     __tablename__ = 'product_images'
