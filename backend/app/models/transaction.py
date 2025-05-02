@@ -48,12 +48,14 @@ class Transaction(Base):
     payment_details = Column(JSON)  # Store payment-specific details
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    transaction_category_id = Column(Integer, ForeignKey('transaction_categories.id'))
     
     # Relationships
     branch = relationship('Branch', back_populates='transactions')
     customer = relationship('User', foreign_keys=[customer_id])
     cashier = relationship('User', foreign_keys=[cashier_id])
     items = relationship('TransactionItem', back_populates='transaction', cascade='all, delete-orphan')
+    category = relationship('TransactionCategory', back_populates='transactions', foreign_keys=[transaction_category_id])
     
     def __init__(self, branch_id: int, cashier_id: int, transaction_type: str, 
                  payment_method: str, subtotal: float, total: float, **kwargs):
@@ -178,7 +180,7 @@ class TransactionCategory(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    transactions = relationship('Transaction', backref='category', lazy='dynamic')
+    transactions = relationship('Transaction', back_populates='category', foreign_keys='Transaction.transaction_category_id')
     
     def to_dict(self):
         return {

@@ -157,4 +157,16 @@ class ProductWithInventory(Product):
     stock_movements: List[StockMovement] = []
 
     class Config:
+        from_attributes = True
+
+class BranchInventoryResponse(BaseModel):
+    id: int
+    branch_id: int
+    product_id: int
+    quantity: int
+    min_stock_level: int
+    max_stock_level: int
+    created_at: datetime
+
+    class Config:
         from_attributes = True 

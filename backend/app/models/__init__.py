@@ -1,5 +1,5 @@
 # Import all models here
-from .user import User, user_role, user_permission
+from .user import User, user_role, user_permission, UserProfile
 from .role import Role
 from .permission import Permission
 from .branch import Branch
@@ -11,9 +11,15 @@ from .address import Address
 from .employee import Employee, Attendance, PerformanceReview, EmployeeTimeLog
 from .integration import IntegrationProvider, IntegrationInstance, IntegrationLog
 from .transaction import Transaction, TransactionCategory
-from .settings import Business, SystemSetting
+from .settings import SystemSetting
 from .notification import Notification, NotificationSetting
 from .customer import Customer
+from .business import Business
+from .expense import Expense
+from .revenue import Revenue
+from .financial_report import FinancialReport
+from .inventory import BranchInventory
+from .feedback import BranchFeedback
 
 # We now use SQLAlchemy directly instead of db.Model
 
@@ -44,9 +50,15 @@ __all__ = [
     'IntegrationLog',
     'Transaction',
     'TransactionCategory',
-    'Business',
     'SystemSetting',
     'Notification',
     'NotificationSetting',
-    'Customer'
+    'Customer',
+    'Business',
+    'UserProfile',
+    'Expense',
+    'Revenue',
+    'FinancialReport',
+    'BranchInventory',
+    'BranchFeedback',
 ] 

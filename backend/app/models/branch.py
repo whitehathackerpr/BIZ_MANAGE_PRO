@@ -29,10 +29,11 @@ class Branch(Base):
     # Relationships
     business = relationship('Business', back_populates='branches')
     manager = relationship('User', back_populates='managed_branches', foreign_keys=[manager_id])
-    employees = relationship('User', secondary='user_branches', back_populates='branches')
+    employees = relationship('User', secondary='user_branches', back_populates='assigned_branches')
     inventory = relationship('Inventory', back_populates='branch', cascade='all, delete-orphan')
     transactions = relationship('Transaction', back_populates='branch')
     orders = relationship('Order', back_populates='branch')
+    products = relationship("Product", back_populates="branch")
 
     def __init__(self, name: str, business_id: int, **kwargs):
         super().__init__(**kwargs)

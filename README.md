@@ -170,6 +170,23 @@ npm run dev
 - Predictive analytics
 - Custom report generation
 
+## Advanced Portal Endpoints
+
+### Customer Feedback
+- `POST /customers/{customer_id}/feedback` — Add feedback for a customer
+- `GET /customers/{customer_id}/feedback` — List feedback for a customer
+
+### Customer Loyalty
+- `GET /customers/{customer_id}/loyalty` — Get loyalty points for a customer
+- `POST /customers/{customer_id}/loyalty` — Add/redeem loyalty points for a customer (body: `points` integer)
+
+### Supplier Analytics
+- `GET /analytics/suppliers` — Get supplier-specific analytics (total, new, growth rate)
+
+### Messaging & Notifications
+- Use `/chats` endpoints for messaging between any users, including suppliers and customers. Create chats with relevant participants.
+- Use `/notifications` endpoints to send, list, and manage notifications for all user types, including suppliers and customers.
+
 ## 🤝 Contributing
 
 1. Fork the repository

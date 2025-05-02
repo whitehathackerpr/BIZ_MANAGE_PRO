@@ -1,22 +1,22 @@
-from app import db
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class BranchUser(db.Model):
+class BranchUser(Base):
     __tablename__ = 'branch_users'
-
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    role = db.Column(db.String(50), nullable=False)
-    status = db.Column(db.String(20), default='active')  # active, inactive, suspended
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    branch = db.relationship('Branch', backref='users')
-    user = db.relationship('User', backref='branches')
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    role = Column(String(50), nullable=False)
+    status = Column(String(20), default='active')  # active, inactive, suspended
+    start_date = Column(DateTime, nullable=False)
+    end_date = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch = relationship('Branch', backref='branch_users')
+    user = relationship('User', backref='branch_users')
+    schedules = relationship('BranchUserSchedule', back_populates='branch_user')
 
     def to_dict(self):
         return {
@@ -34,21 +34,18 @@ class BranchUser(db.Model):
         }
 
     def __repr__(self):
-        return f'<BranchUser {self.branch.name} - {self.user.name}>'
+        return f'<BranchUser {self.id}>'
 
-class BranchUserSchedule(db.Model):
+class BranchUserSchedule(Base):
     __tablename__ = 'branch_user_schedules'
-
-    id = db.Column(db.Integer, primary_key=True)
-    branch_user_id = db.Column(db.Integer, db.ForeignKey('branch_users.id'), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=False)  # 0-6 for Monday-Sunday
-    start_time = db.Column(db.Time, nullable=False)
-    end_time = db.Column(db.Time, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    branch_user = db.relationship('BranchUser', backref='schedules')
+    id = Column(Integer, primary_key=True)
+    branch_user_id = Column(Integer, ForeignKey('branch_users.id'), nullable=False)
+    day_of_week = Column(Integer, nullable=False)  # 0-6 for Monday-Sunday
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch_user = relationship('BranchUser', back_populates='schedules')
 
     def to_dict(self):
         return {
@@ -64,4 +61,4 @@ class BranchUserSchedule(db.Model):
         }
 
     def __repr__(self):
-        return f'<BranchUserSchedule {self.branch_user.user.name} - {self.day_of_week}>' 
+        return f'<BranchUserSchedule {self.id}>' 

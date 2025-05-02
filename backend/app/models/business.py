@@ -1,9 +1,16 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from ..extensions import Base
 from typing import List
 from datetime import datetime
+
+business_suppliers = Table(
+    'business_suppliers',
+    Base.metadata,
+    Column('business_id', Integer, ForeignKey('businesses.id'), primary_key=True),
+    Column('supplier_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
 
 class Business(Base):
     __tablename__ = 'businesses'

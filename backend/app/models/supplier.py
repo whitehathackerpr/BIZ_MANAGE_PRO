@@ -25,7 +25,7 @@ class Supplier(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    products = relationship('Product', backref='supplier', lazy='dynamic')
+    # products = relationship('Product', backref='supplier', lazy='dynamic')  # Disabled: no direct FK from Product to Supplier
     
     def to_dict(self):
         return {

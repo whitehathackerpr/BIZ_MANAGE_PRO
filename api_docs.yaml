@@ -232,4 +232,85 @@ paths:
             application/pdf:
               schema:
                 type: string
-                format: binary 
+                format: binary
+
+  /customers/{customer_id}/feedback:
+    post:
+      summary: Add feedback for a customer
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_id:
+                  type: integer
+                rating:
+                  type: integer
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Feedback created
+    get:
+      summary: List feedback for a customer
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of feedback
+
+  /customers/{customer_id}/loyalty:
+    get:
+      summary: Get loyalty points for a customer
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Loyalty points
+    post:
+      summary: Add/redeem loyalty points for a customer
+      parameters:
+        - in: path
+          name: customer_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                points:
+                  type: integer
+      responses:
+        '200':
+          description: Updated loyalty points
+
+  /analytics/suppliers:
+    get:
+      summary: Get supplier-specific analytics
+      responses:
+        '200':
+          description: Supplier analytics metrics
+
+# Messaging & Notifications
+# Use /chats endpoints for messaging between any users, including suppliers and customers. Create chats with relevant participants.
+# Use /notifications endpoints to send, list, and manage notifications for all user types, including suppliers and customers. 

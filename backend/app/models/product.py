@@ -31,7 +31,7 @@ class Category(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
-    products = relationship('Product', backref='category', lazy='dynamic')
+    products = relationship('Product', back_populates='category', foreign_keys='Product.category_id')
     subcategories = relationship(
         'Category',
         backref=backref('parent', remote_side=[id]),
@@ -108,6 +108,7 @@ class Product(Base):
     
     # Foreign keys
     branch_id = Column(Integer, ForeignKey("branches.id"))
+    category_id = Column(Integer, ForeignKey('categories.id'))
     
     # Relationships
     branch = relationship("Branch", back_populates="products")
@@ -115,6 +116,8 @@ class Product(Base):
     inventory_items = relationship("Inventory", back_populates="product", cascade='all, delete-orphan')
     preferred_by_customers = relationship("User", secondary=customer_preferred_products)
     sales_items = relationship("SaleItem", back_populates="product")
+    business = relationship("Business", back_populates="products")
+    category = relationship('Category', back_populates='products', foreign_keys=[category_id])
     
     def __init__(
         self,

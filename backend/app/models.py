@@ -28,7 +28,7 @@ class Role(Base):
         return f'<Role {self.name}>'
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
     
     id = Column(Integer, primary_key=True)
     username = Column(String(64), unique=True, nullable=False)
@@ -57,13 +57,13 @@ class User(Base):
         return f'<User {self.username}>'
 
 class Branch(Base):
-    __tablename__ = "branch"
+    __tablename__ = "branches"
     
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
     address = Column(String(200))
     phone = Column(String(20))
-    manager_id = Column(Integer, ForeignKey('user.id'))
+    manager_id = Column(Integer, ForeignKey('users.id'))
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     
     # Relationships
@@ -102,7 +102,7 @@ class Product(Base):
     cost = Column(Float, nullable=False)
     quantity = Column(Integer, default=0)
     min_quantity = Column(Integer, default=0)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     category_id = Column(Integer, ForeignKey('category.id'))
     category = Column(String(50))
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
@@ -125,7 +125,7 @@ class Employee(Base):
     email = Column(String(120), unique=True)
     phone = Column(String(20))
     position = Column(String(50))
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     
     # Relationships
@@ -156,8 +156,8 @@ class Sale(Base):
     __tablename__ = "sale"
     
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey('user.id'))
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    user_id = Column(Integer, ForeignKey('users.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     customer_id = Column(Integer, ForeignKey('customer.id'), nullable=True)
     total_amount = Column(Float, nullable=False)
     payment_method = Column(String(20))
@@ -194,7 +194,7 @@ class InventoryTransaction(Base):
     
     id = Column(Integer, primary_key=True)
     product_id = Column(Integer, ForeignKey('product.id'))
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     quantity_change = Column(Integer, nullable=False)
     transaction_type = Column(String(20))  # 'in', 'out', 'adjustment'
     reference = Column(String(100))  # sale_id, purchase_id, etc.
@@ -227,7 +227,7 @@ class Expense(Base):
     __tablename__ = "expense"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     category = Column(String(50), nullable=False)
     amount = Column(Float, nullable=False)
     description = Column(Text)
@@ -244,7 +244,7 @@ class Revenue(Base):
     __tablename__ = "revenue"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     category = Column(String(50), nullable=False)
     amount = Column(Float, nullable=False)
     description = Column(Text)
@@ -261,7 +261,7 @@ class FinancialReport(Base):
     __tablename__ = "financial_report"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=False)
     total_revenue = Column(Float, nullable=False)
@@ -280,7 +280,7 @@ class SalesForecast(Base):
     __tablename__ = "sales_forecast"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     product_id = Column(Integer, ForeignKey('product.id'))
     forecast_date = Column(Date, nullable=False)
     predicted_quantity = Column(Integer, nullable=False)
@@ -298,7 +298,7 @@ class RevenueForecast(Base):
     __tablename__ = "revenue_forecast"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     forecast_date = Column(Date, nullable=False)
     predicted_revenue = Column(Float, nullable=False)
     confidence_score = Column(Float, nullable=False)
@@ -314,7 +314,7 @@ class InventoryForecast(Base):
     __tablename__ = "inventory_forecast"
     
     id = Column(Integer, primary_key=True)
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     product_id = Column(Integer, ForeignKey('product.id'))
     forecast_date = Column(Date, nullable=False)
     predicted_quantity = Column(Integer, nullable=False)
@@ -339,36 +339,15 @@ class Customer(Base):
     loyalty_points = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC))
     
-    # Relationships
-    sales = relationship('Sale', back_populates='customer')
-    feedback = relationship('CustomerFeedback', back_populates='customer')
-    
     def __repr__(self):
         return f'<Customer {self.name}>'
-
-class CustomerFeedback(Base):
-    __tablename__ = "customer_feedback"
-    
-    id = Column(Integer, primary_key=True)
-    customer_id = Column(Integer, ForeignKey('customer.id'))
-    product_id = Column(Integer, ForeignKey('product.id'))
-    rating = Column(Integer, nullable=False)  # 1-5 stars
-    comment = Column(Text)
-    created_at = Column(DateTime, default=lambda: datetime.now(UTC))
-    
-    # Relationships
-    customer = relationship('Customer', back_populates='feedback')
-    product = relationship('Product')
-    
-    def __repr__(self):
-        return f'<CustomerFeedback {self.id}>'
 
 class ProductAvailability(Base):
     __tablename__ = "product_availability"
     
     id = Column(Integer, primary_key=True)
     product_id = Column(Integer, ForeignKey('product.id'))
-    branch_id = Column(Integer, ForeignKey('branch.id'))
+    branch_id = Column(Integer, ForeignKey('branches.id'))
     is_available = Column(Boolean, default=True)
     last_updated = Column(DateTime, default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC))
     

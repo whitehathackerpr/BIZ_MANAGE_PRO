@@ -1,23 +1,25 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchHealth(db.Model):
+class BranchHealth(Base):
     __tablename__ = 'branch_health'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    health_type = db.Column(db.String(50), nullable=False)  # safety, hygiene, emergency, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, maintenance
-    last_inspection = db.Column(db.DateTime)
-    next_inspection = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    health_type = Column(String(50), nullable=False)  # safety, hygiene, emergency, etc.
+    status = Column(String(20), default='active')  # active, inactive, maintenance
+    last_inspection = Column(DateTime)
+    next_inspection = Column(DateTime)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='health_systems')
-    creator = db.relationship('User', backref='created_health')
+    branch = relationship('Branch', backref='health_systems')
+    creator = relationship('User', backref='created_health')
 
     def to_dict(self):
         return {
@@ -38,26 +40,26 @@ class BranchHealth(db.Model):
     def __repr__(self):
         return f'<BranchHealth {self.branch.name} - {self.health_type}>'
 
-class BranchHealthInspection(db.Model):
+class BranchHealthInspection(Base):
     __tablename__ = 'branch_health_inspections'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    health_id = db.Column(db.Integer, db.ForeignKey('branch_health.id'), nullable=False)
-    inspector_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    inspection_date = db.Column(db.DateTime, nullable=False)
-    inspection_type = db.Column(db.String(50), nullable=False)  # routine, special, emergency
-    findings = db.Column(db.JSON, nullable=False)  # List of inspection findings
-    recommendations = db.Column(db.Text)
-    status = db.Column(db.String(20), default='pending')  # pending, completed, failed
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    health_id = Column(Integer, ForeignKey('branch_health.id'), nullable=False)
+    inspector_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    inspection_date = Column(DateTime, nullable=False)
+    inspection_type = Column(String(50), nullable=False)  # routine, special, emergency
+    findings = Column(JSON, nullable=False)  # List of inspection findings
+    recommendations = Column(Text)
+    status = Column(String(20), default='pending')  # pending, completed, failed
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='health_inspections')
-    health = db.relationship('BranchHealth', backref='inspections')
-    inspector = db.relationship('User', backref='conducted_inspections')
+    branch = relationship('Branch', backref='health_inspections')
+    health = relationship('BranchHealth', backref='inspections')
+    inspector = relationship('User', backref='conducted_inspections')
 
     def to_dict(self):
         return {
@@ -81,31 +83,31 @@ class BranchHealthInspection(db.Model):
     def __repr__(self):
         return f'<BranchHealthInspection {self.branch.name} - {self.inspection_date}>'
 
-class BranchHealthIncident(db.Model):
+class BranchHealthIncident(Base):
     __tablename__ = 'branch_health_incidents'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    incident_type = db.Column(db.String(50), nullable=False)  # injury, illness, accident, etc.
-    severity = db.Column(db.String(20), default='medium')  # low, medium, high, critical
-    description = db.Column(db.Text, nullable=False)
-    location = db.Column(db.String(200))
-    timestamp = db.Column(db.DateTime, nullable=False)
-    reported_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    affected_people = db.Column(db.JSON)  # List of affected people
-    immediate_actions = db.Column(db.Text)
-    status = db.Column(db.String(20), default='open')  # open, investigating, resolved
-    resolution = db.Column(db.Text)
-    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    resolved_at = db.Column(db.DateTime)
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    incident_type = Column(String(50), nullable=False)  # injury, illness, accident, etc.
+    severity = Column(String(20), default='medium')  # low, medium, high, critical
+    description = Column(Text, nullable=False)
+    location = Column(String(200))
+    timestamp = Column(DateTime, nullable=False)
+    reported_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    affected_people = Column(JSON)  # List of affected people
+    immediate_actions = Column(Text)
+    status = Column(String(20), default='open')  # open, investigating, resolved
+    resolution = Column(Text)
+    resolved_by = Column(Integer, ForeignKey('users.id'))
+    resolved_at = Column(DateTime)
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='health_incidents')
-    reporter = db.relationship('User', foreign_keys=[reported_by], backref='reported_health_incidents')
-    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_health_incidents')
+    branch = relationship('Branch', backref='health_incidents')
+    reporter = relationship('User', foreign_keys=[reported_by], backref='reported_health_incidents')
+    resolver = relationship('User', foreign_keys=[resolved_by], backref='resolved_health_incidents')
 
     def to_dict(self):
         return {

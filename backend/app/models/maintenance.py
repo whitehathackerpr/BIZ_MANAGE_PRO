@@ -1,29 +1,29 @@
-from app import db
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean, Text, Float, JSON
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class BranchMaintenance(db.Model):
+class BranchMaintenance(Base):
     __tablename__ = 'branch_maintenance'
-
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    maintenance_type = db.Column(db.String(50), nullable=False)  # preventive, corrective, emergency
-    priority = db.Column(db.String(20), default='medium')  # low, medium, high, urgent
-    status = db.Column(db.String(20), default='pending')  # pending, scheduled, in_progress, completed
-    scheduled_date = db.Column(db.DateTime)
-    completed_date = db.Column(db.DateTime)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
-    cost = db.Column(db.Float)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    branch = db.relationship('Branch', backref='maintenance_tasks')
-    assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_maintenance')
-    creator = db.relationship('User', foreign_keys=[created_by], backref='created_maintenance')
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    maintenance_type = Column(String(50), nullable=False)  # preventive, corrective, emergency
+    priority = Column(String(20), default='medium')  # low, medium, high, urgent
+    status = Column(String(20), default='pending')  # pending, scheduled, in_progress, completed
+    scheduled_date = Column(DateTime)
+    completed_date = Column(DateTime)
+    assigned_to = Column(Integer, ForeignKey('users.id'))
+    cost = Column(Float)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch = relationship('Branch', backref='maintenance')
+    schedules = relationship('BranchMaintenanceSchedule', back_populates='maintenance')
+    assignee = relationship('User', foreign_keys=[assigned_to], backref='assigned_maintenance')
+    creator = relationship('User', foreign_keys=[created_by], backref='created_maintenance')
 
     def to_dict(self):
         return {
@@ -50,26 +50,27 @@ class BranchMaintenance(db.Model):
     def __repr__(self):
         return f'<BranchMaintenance {self.branch.name} - {self.title}>'
 
-class BranchMaintenanceSchedule(db.Model):
+class BranchMaintenanceSchedule(Base):
     __tablename__ = 'branch_maintenance_schedules'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    frequency = db.Column(db.String(50), nullable=False)  # daily, weekly, monthly, quarterly, yearly
-    last_performed = db.Column(db.DateTime)
-    next_due = db.Column(db.DateTime)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
-    checklist = db.Column(db.JSON, nullable=False)  # List of maintenance tasks
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    branch = db.relationship('Branch', backref='maintenance_schedules')
-    assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_schedules')
-    creator = db.relationship('User', foreign_keys=[created_by], backref='created_schedules')
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    maintenance_id = Column(Integer, ForeignKey('branch_maintenance.id'))
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    frequency = Column(String(50), nullable=False)  # daily, weekly, monthly, quarterly, yearly
+    last_performed = Column(DateTime)
+    next_due = Column(DateTime)
+    assigned_to = Column(Integer, ForeignKey('users.id'))
+    checklist = Column(JSON, nullable=False)  # List of maintenance tasks
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch = relationship('Branch', backref='maintenance_schedules')
+    assignee = relationship('User', foreign_keys=[assigned_to], backref='assigned_schedules')
+    creator = relationship('User', foreign_keys=[created_by], backref='created_schedules')
+    maintenance = relationship('BranchMaintenance', back_populates='schedules')
+    records = relationship('BranchMaintenanceRecord', back_populates='schedule')
 
     def to_dict(self):
         return {
@@ -93,26 +94,24 @@ class BranchMaintenanceSchedule(db.Model):
     def __repr__(self):
         return f'<BranchMaintenanceSchedule {self.branch.name} - {self.title}>'
 
-class BranchMaintenanceRecord(db.Model):
+class BranchMaintenanceRecord(Base):
     __tablename__ = 'branch_maintenance_records'
 
-    id = db.Column(db.Integer, primary_key=True)
-    maintenance_id = db.Column(db.Integer, db.ForeignKey('branch_maintenance.id'), nullable=False)
-    schedule_id = db.Column(db.Integer, db.ForeignKey('branch_maintenance_schedules.id'))
-    performed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    performed_at = db.Column(db.DateTime, nullable=False)
-    duration = db.Column(db.Integer)  # Duration in minutes
-    materials_used = db.Column(db.JSON)  # List of materials used
-    cost = db.Column(db.Float)
-    notes = db.Column(db.Text)
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    maintenance = db.relationship('BranchMaintenance', backref='records')
-    schedule = db.relationship('BranchMaintenanceSchedule', backref='records')
-    performer = db.relationship('User', backref='maintenance_records')
+    id = Column(Integer, primary_key=True)
+    maintenance_id = Column(Integer, ForeignKey('branch_maintenance.id'), nullable=False)
+    schedule_id = Column(Integer, ForeignKey('branch_maintenance_schedules.id'))
+    performed_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    performed_at = Column(DateTime, nullable=False)
+    duration = Column(Integer)  # Duration in minutes
+    materials_used = Column(JSON)  # List of materials used
+    cost = Column(Float)
+    notes = Column(Text)
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    maintenance = relationship('BranchMaintenance', backref='records')
+    schedule = relationship('BranchMaintenanceSchedule', back_populates='records')
+    performer = relationship('User', backref='maintenance_records')
 
     def to_dict(self):
         return {

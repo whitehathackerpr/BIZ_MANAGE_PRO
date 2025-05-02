@@ -10,6 +10,7 @@ from ..models import Role, Permission, Employee, EmployeeTimeLog, User
 from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.validation import validate_role_data
+from app.schemas.permission import Permission
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 
@@ -59,7 +60,8 @@ async def get_roles(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
-    return db.query(Role).all()
+    db_roles = db.query(Role).all()
+    return [RoleResponse.from_orm(role) for role in db_roles]
 
 @router.post("/", response_model=RoleResponse)
 async def create_role(
@@ -78,7 +80,7 @@ async def create_role(
     db.add(db_role)
     db.commit()
     db.refresh(db_role)
-    return db_role
+    return RoleResponse.from_orm(db_role)
 
 @router.put("/{role_id}", response_model=RoleResponse)
 async def update_role(
@@ -131,7 +133,7 @@ async def update_role(
     db.commit()
     db.refresh(db_role)
     
-    return db_role
+    return RoleResponse.from_orm(db_role)
 
 @router.delete("/{role_id}")
 async def delete_role(
@@ -183,7 +185,8 @@ async def get_permissions(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
-    return db.query(Permission).all()
+    db_permissions = db.query(Permission).all()
+    return [PermissionResponse.from_orm(p) for p in db_permissions]
 
 @router.post("/{role_id}/permissions")
 async def assign_permissions(
@@ -247,7 +250,7 @@ async def get_role_permissions(
             detail="Role not found"
         )
     
-    return db_role.permissions
+    return [PermissionResponse.from_orm(p) for p in db_role.permissions]
 
 @router.post("/employees/{employee_id}/time-logs", response_model=TimeLogBase)
 async def check_in(

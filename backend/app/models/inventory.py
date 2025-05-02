@@ -140,20 +140,20 @@ class StockMovement(Base):
     def __repr__(self) -> str:
         return f"<StockMovement {self.movement_type} {self.quantity} units>"
 
-class BranchInventory(db.Model):
+class BranchInventory(Base):
     __tablename__ = 'branch_inventory'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    quantity = db.Column(db.Integer, default=0)
-    min_stock_level = db.Column(db.Integer, default=0)
-    max_stock_level = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Integer, default=0)
+    min_stock_level = Column(Integer, default=0)
+    max_stock_level = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    product = db.relationship('Product', backref='branch_inventory')
+    product = relationship('Product', backref='branch_inventory')
 
     def to_dict(self):
         return {
@@ -172,26 +172,26 @@ class BranchInventory(db.Model):
     def __repr__(self):
         return f'<BranchInventory {self.product.name} - {self.quantity}>'
 
-class InventoryTransfer(db.Model):
+class InventoryTransfer(Base):
     __tablename__ = 'inventory_transfers'
 
-    id = db.Column(db.Integer, primary_key=True)
-    source_branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    target_branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
-    quantity = db.Column(db.Integer, nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, approved, completed, cancelled
-    requested_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    approved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    source_branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    target_branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    status = Column(String(20), default='pending')  # pending, approved, completed, cancelled
+    requested_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    approved_by = Column(Integer, ForeignKey('users.id'))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    source_branch = db.relationship('Branch', foreign_keys=[source_branch_id], backref='outgoing_transfers')
-    target_branch = db.relationship('Branch', foreign_keys=[target_branch_id], backref='incoming_transfers')
-    product = db.relationship('Product', backref='transfers')
-    requester = db.relationship('User', foreign_keys=[requested_by], backref='requested_transfers')
-    approver = db.relationship('User', foreign_keys=[approved_by], backref='approved_transfers')
+    source_branch = relationship('Branch', foreign_keys=[source_branch_id], backref='outgoing_transfers')
+    target_branch = relationship('Branch', foreign_keys=[target_branch_id], backref='incoming_transfers')
+    product = relationship('Product', backref='transfers')
+    requester = relationship('User', foreign_keys=[requested_by], backref='requested_transfers')
+    approver = relationship('User', foreign_keys=[approved_by], backref='approved_transfers')
 
     def to_dict(self):
         return {
@@ -205,12 +205,10 @@ class InventoryTransfer(db.Model):
             'quantity': self.quantity,
             'status': self.status,
             'requested_by': self.requested_by,
-            'requester_name': self.requester.name,
             'approved_by': self.approved_by,
-            'approver_name': self.approver.name if self.approver else None,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat()
         }
 
     def __repr__(self):
-        return f'<InventoryTransfer {self.product.name} - {self.quantity}>' 
+        return f'<InventoryTransfer {self.product.name} from {self.source_branch.name} to {self.target_branch.name}>' 

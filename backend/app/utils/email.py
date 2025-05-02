@@ -55,4 +55,8 @@ async def send_password_reset_email(email: str, reset_url: str):
         logging.info(f"Password reset email sent to {email}")
     except Exception as e:
         logging.error(f"Failed to send password reset email: {str(e)}")
-        raise 
+        raise
+
+def send_email(subject, recipients, body):
+    """Stub for send_email. Does nothing."""
+    pass 

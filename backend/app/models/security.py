@@ -1,23 +1,25 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchSecurity(db.Model):
+class BranchSecurity(Base):
     __tablename__ = 'branch_security'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    security_type = db.Column(db.String(50), nullable=False)  # access_control, surveillance, alarm, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, maintenance
-    last_checked = db.Column(db.DateTime)
-    next_check = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    security_type = Column(String(50), nullable=False)  # access_control, surveillance, alarm, etc.
+    status = Column(String(20), default='active')  # active, inactive, maintenance
+    last_checked = Column(DateTime)
+    next_check = Column(DateTime)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='security_systems')
-    creator = db.relationship('User', backref='created_security')
+    branch = relationship('Branch', backref='security_systems')
+    creator = relationship('User', backref='created_security')
 
     def to_dict(self):
         return {
@@ -38,25 +40,25 @@ class BranchSecurity(db.Model):
     def __repr__(self):
         return f'<BranchSecurity {self.branch.name} - {self.security_type}>'
 
-class BranchAccessLog(db.Model):
+class BranchAccessLog(Base):
     __tablename__ = 'branch_access_logs'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    access_type = db.Column(db.String(20), nullable=False)  # entry, exit
-    access_point = db.Column(db.String(100))  # door, gate, etc.
-    access_method = db.Column(db.String(50))  # key, card, biometric, etc.
-    timestamp = db.Column(db.DateTime, nullable=False)
-    ip_address = db.Column(db.String(45))  # IPv6 compatible
-    device_info = db.Column(db.String(200))
-    status = db.Column(db.String(20), default='success')  # success, failed
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    access_type = Column(String(20), nullable=False)  # entry, exit
+    access_point = Column(String(100))  # door, gate, etc.
+    access_method = Column(String(50))  # key, card, biometric, etc.
+    timestamp = Column(DateTime, nullable=False)
+    ip_address = Column(String(45))  # IPv6 compatible
+    device_info = Column(String(200))
+    status = Column(String(20), default='success')  # success, failed
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='access_logs')
-    user = db.relationship('User', backref='access_logs')
+    branch = relationship('Branch', backref='access_logs')
+    user = relationship('User', backref='access_logs')
 
     def to_dict(self):
         return {
@@ -79,29 +81,29 @@ class BranchAccessLog(db.Model):
     def __repr__(self):
         return f'<BranchAccessLog {self.branch.name} - {self.user.name} - {self.timestamp}>'
 
-class BranchSecurityIncident(db.Model):
+class BranchSecurityIncident(Base):
     __tablename__ = 'branch_security_incidents'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    incident_type = db.Column(db.String(50), nullable=False)  # theft, vandalism, unauthorized_access, etc.
-    severity = db.Column(db.String(20), default='medium')  # low, medium, high, critical
-    description = db.Column(db.Text, nullable=False)
-    location = db.Column(db.String(200))
-    timestamp = db.Column(db.DateTime, nullable=False)
-    reported_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='open')  # open, investigating, resolved
-    resolution = db.Column(db.Text)
-    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    resolved_at = db.Column(db.DateTime)
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    incident_type = Column(String(50), nullable=False)  # theft, vandalism, unauthorized_access, etc.
+    severity = Column(String(20), default='medium')  # low, medium, high, critical
+    description = Column(Text, nullable=False)
+    location = Column(String(200))
+    timestamp = Column(DateTime, nullable=False)
+    reported_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(20), default='open')  # open, investigating, resolved
+    resolution = Column(Text)
+    resolved_by = Column(Integer, ForeignKey('users.id'))
+    resolved_at = Column(DateTime)
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='security_incidents')
-    reporter = db.relationship('User', foreign_keys=[reported_by], backref='reported_incidents')
-    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_incidents')
+    branch = relationship('Branch', backref='security_incidents')
+    reporter = relationship('User', foreign_keys=[reported_by], backref='reported_incidents')
+    resolver = relationship('User', foreign_keys=[resolved_by], backref='resolved_incidents')
 
     def to_dict(self):
         return {

@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from app.db import Base
+from ..extensions import Base
 from app.models.user import user_role  # Import the user_role table
 
 # Association table for role-permission relationship

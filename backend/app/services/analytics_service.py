@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, desc
 from ..models.analytics import AnalyticsEvent, AnalyticsMetric, AnalyticsReport
 from ..models.sale import Sale, SaleItem
-from ..models.product import Product
-from ..models.category import Category
+from ..models.product import Product, Category
 from ..models.user import User
 from ..extensions import db
 
@@ -249,5 +248,24 @@ class AnalyticsService:
             'customer_retention_rate': (
                 (active_customers / total_customers * 100)
                 if total_customers > 0 else 0
+            )
+        }
+
+    @staticmethod
+    def get_supplier_metrics():
+        """Get supplier-related metrics"""
+        total_suppliers = User.query.filter_by(role='supplier').count()
+        active_suppliers = total_suppliers  # Placeholder, refine as needed
+        new_suppliers = User.query.filter(
+            User.role == 'supplier',
+            User.created_at >= datetime.utcnow() - timedelta(days=30)
+        ).count()
+        return {
+            'total_suppliers': total_suppliers,
+            'active_suppliers': active_suppliers,
+            'new_suppliers': new_suppliers,
+            'supplier_growth_rate': (
+                (new_suppliers / total_suppliers * 100)
+                if total_suppliers > 0 else 0
             )
         } 

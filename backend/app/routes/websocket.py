@@ -5,7 +5,7 @@ from typing import Optional
 from datetime import datetime
 from pydantic import BaseModel
 
-from ..models import User, Notification, ChatMessage
+from ..models import User, Notification
 from ..extensions import get_db
 from ..utils.decorators import admin_required
 

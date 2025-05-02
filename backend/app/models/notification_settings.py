@@ -1,22 +1,27 @@
 from datetime import datetime
-from ..extensions import db
+from sqlalchemy import Column, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class NotificationSetting(db.Model):
+class NotificationSetting(Base):
     """
     Model for user notification preferences.
     """
     __tablename__ = 'notification_settings'
     
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
-    email_notifications = db.Column(db.Boolean, default=True)
-    push_notifications = db.Column(db.Boolean, default=True)
-    in_app_notifications = db.Column(db.Boolean, default=True)
-    low_stock_alerts = db.Column(db.Boolean, default=True)
-    order_updates = db.Column(db.Boolean, default=True)
-    system_alerts = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
+    email_notifications = Column(Boolean, default=True)
+    push_notifications = Column(Boolean, default=True)
+    in_app_notifications = Column(Boolean, default=True)
+    low_stock_alerts = Column(Boolean, default=True)
+    order_updates = Column(Boolean, default=True)
+    system_alerts = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationships
+    user = relationship('User', back_populates='notification_settings')
     
     def __init__(self, user_id, **kwargs):
         self.user_id = user_id
@@ -56,22 +61,23 @@ class NotificationSetting(db.Model):
                 setattr(self, key, value)
     
     @classmethod
-    def get_or_create(cls, user_id):
+    def get_or_create(cls, db_session, user_id):
         """
         Get user's notification settings or create default settings.
         
         Args:
+            db_session: SQLAlchemy session
             user_id (int): ID of the user
             
         Returns:
             NotificationSetting: User's notification settings
         """
-        settings = cls.query.filter_by(user_id=user_id).first()
+        settings = db_session.query(cls).filter_by(user_id=user_id).first()
         
         if not settings:
             settings = cls(user_id=user_id)
-            db.session.add(settings)
-            db.session.commit()
+            db_session.add(settings)
+            db_session.commit()
         
         return settings
     

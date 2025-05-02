@@ -33,7 +33,8 @@ from app.core.exceptions import (
     ConflictException
 )
 from app.config import settings
-from app.extensions import engine, Base
+from app.db.session import engine
+from app.db.base import Base  # Import the Base that includes all models
 from contextlib import asynccontextmanager
 
 # Import all models to ensure they are registered with SQLAlchemy
@@ -45,7 +46,8 @@ from app.models.product import Product
 from app.models.sale import Sale, SaleItem
 from app.models.employee import Employee
 from app.models.transaction import Transaction
-from app.models.settings import Business, SystemSetting
+from app.models.business import Business
+from app.models.settings import SystemSetting
 from app.models.notification import Notification, NotificationSetting
 from app.models.customer import Customer
 from app.models.supplier import Supplier
@@ -198,49 +200,50 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Root endpoints
 @app.get("/")
 def read_root():
-    """Root endpoint"""
-    return {"message": "BIZ_MANAGE_PRO API is running"}
-
-# Health check router
-health_router = APIRouter(
-    prefix="/health",
-    tags=["health"],
-)
-
-@health_router.get("/")
-def health_check():
-    """Health check endpoint"""
     return {
-        "status": "healthy",
+        "status": "ok",
+        "message": "BIZ_MANAGE_PRO API is running",
         "version": settings.VERSION,
-        "environment": settings.ENVIRONMENT,
-        "timestamp": datetime.now(UTC).isoformat(),
-        "redis": "connected" if redis_client.ping() else "disconnected"
+        "environment": settings.ENVIRONMENT
     }
 
-# Include health router
-app.include_router(health_router)
+# Import and include routers
+from app.routes import (
+    auth,
+    users,
+    products,
+    sales,
+    inventory,
+    roles,
+    notifications,
+    notification_settings,
+    health,
+    analytics,
+    chat,
+    settings as settings_router,
+    branch,
+    websocket,
+    customers
+)
 
-# Create required directories
-def init_directories():
-    """Ensure required directories exist"""
-    directories = [
-        "logs",
-        "uploads",
-        "uploads/profile_pics",
-        "uploads/product_images",
-        "uploads/branch_images"
-    ]
-    for directory in directories:
-        os.makedirs(directory, exist_ok=True)
-        logger.info(f"Created directory: {directory}")
-
-# Initialize directories
-init_directories()
+# Include routers
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
+app.include_router(branch.router, prefix="/api/v1/branches", tags=["Branches"])
+app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
+app.include_router(sales.router, prefix="/api/v1/sales", tags=["Sales"])
+app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["Inventory"])
+app.include_router(customers.router, prefix="/api/v1/customers", tags=["Customers"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["Analytics"])
+app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
+app.include_router(health.router, prefix="/api/v1/health", tags=["Health"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
+app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
 
 # Mount static files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Merge FastAPI apps
 # This allows us to combine both FastAPI applications by including all routes
@@ -306,5 +309,11 @@ async def get_metrics():
     )
 
 if __name__ == "__main__":
-    # Run the integrated FastAPI application
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(
+        "main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG,
+        workers=4,
+        log_level="info"
+    )

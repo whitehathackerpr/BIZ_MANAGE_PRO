@@ -14,7 +14,8 @@ fi
 
 # Activate virtual environment
 source venv/bin/activate
-
+#upgrading pip
+pip install --upgrade pip
 # Install dependencies
 echo "Installing dependencies..."
 pip install -r requirements.txt

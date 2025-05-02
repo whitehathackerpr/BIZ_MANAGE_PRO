@@ -26,7 +26,7 @@ class Sale(Base):
     
     # Relationships
     items = relationship('SaleItem', backref='sale', lazy='dynamic', cascade='all, delete-orphan')
-    customer = relationship('Customer', backref='sales')
+    customer = relationship('Customer', back_populates='sales')
     created_by_user = relationship('User', backref='sales_created')
     
     @hybrid_property

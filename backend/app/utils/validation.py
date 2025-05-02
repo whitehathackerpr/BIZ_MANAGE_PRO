@@ -30,4 +30,28 @@ def validate_role_data(data, partial=False):
         elif not all(isinstance(id, int) for id in data['permission_ids']):
             errors.append('All permission IDs must be integers')
     
-    return errors 
+    return errors
+
+def validate_user_data(data, partial=False):
+    """
+    Stub for user data validation. Returns no errors.
+    """
+    return []
+
+def validate_product_data(data, partial=False):
+    """
+    Stub for product data validation. Returns no errors.
+    """
+    return []
+
+def validate_sale_data(data, partial=False):
+    """
+    Stub for sale data validation. Returns no errors.
+    """
+    return []
+
+def validate_inventory_data(data, partial=False):
+    """
+    Stub for inventory data validation. Returns no errors.
+    """
+    return [] 

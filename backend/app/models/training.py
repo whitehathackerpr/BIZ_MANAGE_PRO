@@ -1,23 +1,28 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchTraining(db.Model):
+class BranchTraining(Base):
     __tablename__ = 'branch_training'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    training_type = db.Column(db.String(50), nullable=False)  # safety, technical, soft_skills, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, completed
-    last_session = db.Column(db.DateTime)
-    next_session = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    training_type = Column(String(50), nullable=False)  # safety, technical, soft_skills, etc.
+    status = Column(String(20), default='active')  # active, inactive, completed
+    last_session = Column(DateTime)
+    next_session = Column(DateTime)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='training_programs')
-    creator = db.relationship('User', backref='created_training')
+    branch = relationship('Branch', backref='training_programs')
+    creator = relationship('User', backref='created_training')
+    sessions = relationship('BranchTrainingSession', back_populates='training')
+    enrollments = relationship('BranchTrainingEnrollment', back_populates='training')
+    assessments = relationship('BranchTrainingAssessment', back_populates='training')
 
     def to_dict(self):
         return {
@@ -38,29 +43,30 @@ class BranchTraining(db.Model):
     def __repr__(self):
         return f'<BranchTraining {self.branch.name} - {self.training_type}>'
 
-class BranchTrainingSession(db.Model):
+class BranchTrainingSession(Base):
     __tablename__ = 'branch_training_sessions'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    training_id = db.Column(db.Integer, db.ForeignKey('branch_training.id'), nullable=False)
-    trainer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    session_date = db.Column(db.DateTime, nullable=False)
-    session_type = db.Column(db.String(50), nullable=False)  # classroom, online, practical
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    duration = db.Column(db.Integer)  # Duration in minutes
-    materials = db.Column(db.JSON)  # List of training materials
-    status = db.Column(db.String(20), default='scheduled')  # scheduled, in_progress, completed
-    feedback = db.Column(db.JSON)  # List of participant feedback
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    training_id = Column(Integer, ForeignKey('branch_training.id'), nullable=False)
+    trainer_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    session_date = Column(DateTime, nullable=False)
+    session_type = Column(String(50), nullable=False)  # classroom, online, practical
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    duration = Column(Integer)  # Duration in minutes
+    materials = Column(JSON)  # List of training materials
+    status = Column(String(20), default='scheduled')  # scheduled, in_progress, completed
+    feedback = Column(JSON)  # List of participant feedback
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='training_sessions')
-    training = db.relationship('BranchTraining', backref='sessions')
-    trainer = db.relationship('User', backref='conducted_sessions')
+    branch = relationship('Branch', backref='training_sessions')
+    training = relationship('BranchTraining', back_populates='sessions')
+    trainer = relationship('User', backref='conducted_sessions')
+    participants = relationship('BranchTrainingParticipant', back_populates='session')
 
     def to_dict(self):
         return {
@@ -87,26 +93,26 @@ class BranchTrainingSession(db.Model):
     def __repr__(self):
         return f'<BranchTrainingSession {self.branch.name} - {self.title}>'
 
-class BranchTrainingParticipant(db.Model):
+class BranchTrainingParticipant(Base):
     __tablename__ = 'branch_training_participants'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    session_id = db.Column(db.Integer, db.ForeignKey('branch_training_sessions.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='registered')  # registered, attended, completed
-    attendance = db.Column(db.DateTime)
-    completion = db.Column(db.DateTime)
-    feedback = db.Column(db.Text)
-    assessment_score = db.Column(db.Float)
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    session_id = Column(Integer, ForeignKey('branch_training_sessions.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(20), default='registered')  # registered, attended, completed
+    attendance = Column(DateTime)
+    completion = Column(DateTime)
+    feedback = Column(Text)
+    assessment_score = Column(Float)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='training_participants')
-    session = db.relationship('BranchTrainingSession', backref='participants')
-    user = db.relationship('User', backref='training_participations')
+    branch = relationship('Branch', backref='training_participants')
+    session = relationship('BranchTrainingSession', back_populates='participants')
+    user = relationship('User', backref='training_participations')
 
     def to_dict(self):
         return {
@@ -130,22 +136,22 @@ class BranchTrainingParticipant(db.Model):
     def __repr__(self):
         return f'<BranchTrainingParticipant {self.branch.name} - {self.user.name}>'
 
-class BranchTrainingEnrollment(db.Model):
+class BranchTrainingEnrollment(Base):
     __tablename__ = 'branch_training_enrollments'
 
-    id = db.Column(db.Integer, primary_key=True)
-    training_id = db.Column(db.Integer, db.ForeignKey('branch_training.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    status = db.Column(db.String(20), default='enrolled')  # enrolled, in_progress, completed, dropped
-    progress = db.Column(db.Integer, default=0)  # Progress percentage
-    started_at = db.Column(db.DateTime)
-    completed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    training_id = Column(Integer, ForeignKey('branch_training.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    status = Column(String(20), default='enrolled')  # enrolled, in_progress, completed, dropped
+    progress = Column(Integer, default=0)  # Progress percentage
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    training = db.relationship('BranchTraining', backref='enrollments')
-    user = db.relationship('User', backref='training_enrollments')
+    training = relationship('BranchTraining', back_populates='enrollments')
+    user = relationship('User', backref='training_enrollments')
 
     def to_dict(self):
         return {
@@ -166,23 +172,24 @@ class BranchTrainingEnrollment(db.Model):
     def __repr__(self):
         return f'<BranchTrainingEnrollment {self.training.training_type} - {self.user.name}>'
 
-class BranchTrainingAssessment(db.Model):
+class BranchTrainingAssessment(Base):
     __tablename__ = 'branch_training_assessments'
 
-    id = db.Column(db.Integer, primary_key=True)
-    training_id = db.Column(db.Integer, db.ForeignKey('branch_training.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    questions = db.Column(db.JSON, nullable=False)  # List of assessment questions
-    passing_score = db.Column(db.Integer, nullable=False)  # Minimum score to pass
-    time_limit = db.Column(db.Integer)  # Time limit in minutes
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    training_id = Column(Integer, ForeignKey('branch_training.id'), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    questions = Column(JSON, nullable=False)  # List of assessment questions
+    passing_score = Column(Integer, nullable=False)  # Minimum score to pass
+    time_limit = Column(Integer)  # Time limit in minutes
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    training = db.relationship('BranchTraining', backref='assessments')
-    creator = db.relationship('User', backref='created_assessments')
+    training = relationship('BranchTraining', back_populates='assessments')
+    creator = relationship('User', backref='created_assessments')
+    results = relationship('BranchTrainingAssessmentResult', back_populates='assessment')
 
     def to_dict(self):
         return {
@@ -204,31 +211,29 @@ class BranchTrainingAssessment(db.Model):
     def __repr__(self):
         return f'<BranchTrainingAssessment {self.training.training_type} - {self.title}>'
 
-class BranchTrainingAssessmentResult(db.Model):
+class BranchTrainingAssessmentResult(Base):
     __tablename__ = 'branch_training_assessment_results'
 
-    id = db.Column(db.Integer, primary_key=True)
-    assessment_id = db.Column(db.Integer, db.ForeignKey('branch_training_assessments.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    score = db.Column(db.Integer, nullable=False)
-    answers = db.Column(db.JSON, nullable=False)  # User's answers
-    started_at = db.Column(db.DateTime, nullable=False)
-    completed_at = db.Column(db.DateTime)
-    status = db.Column(db.String(20), default='completed')  # completed, failed, abandoned
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    assessment_id = Column(Integer, ForeignKey('branch_training_assessments.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    score = Column(Integer, nullable=False)
+    answers = Column(JSON, nullable=False)  # User's answers
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime)
+    status = Column(String(20), default='completed')  # completed, failed, abandoned
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    assessment = db.relationship('BranchTrainingAssessment', backref='results')
-    user = db.relationship('User', backref='assessment_results')
+    assessment = relationship('BranchTrainingAssessment', back_populates='results')
+    user = relationship('User', backref='assessment_results')
 
     def to_dict(self):
         return {
             'id': self.id,
             'assessment_id': self.assessment_id,
             'assessment_title': self.assessment.title,
-            'training_title': self.assessment.training.training_type,
-            'branch_name': self.assessment.training.branch.name,
             'user_id': self.user_id,
             'user_name': self.user.name,
             'score': self.score,

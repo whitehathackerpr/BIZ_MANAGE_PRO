@@ -5,8 +5,13 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import JSONB
 import enum
-from app.db import Base
+from ..extensions import Base
 from typing import List
+from app.models.business import Business
+from app.models.branch import Branch
+from app.models.product import Product
+from app.models.order import Order
+from app.models.transaction import Transaction
 
 class UserRole(str, enum.Enum):
     OWNER = "owner"
@@ -83,30 +88,19 @@ class User(Base):
     last_login = Column(DateTime)
     
     # Role-specific fields
-    permissions = Column(JSONB, default={})
+    permissions = relationship('Permission', secondary=user_permission, back_populates='users')
     preferences = Column(JSONB, default={})
     
     # Relationships
-    owned_businesses = relationship("Business", back_populates="owner")
-    managed_branch_id = Column(Integer, ForeignKey('branches.id'))
-    managed_branch = relationship("Branch", back_populates="manager", foreign_keys=[managed_branch_id])
-    
-    # Many-to-many relationship with branches (for staff assignments)
-    assigned_branches = relationship(
-        "Branch",
-        secondary=user_branches,
-        back_populates="staff"
-    )
+    roles = relationship('Role', secondary=user_role, back_populates='users')
+    # managed_branch_id = Column(Integer, ForeignKey('branches.id'))
     
     # Supplier-specific relationships
-    supplied_products = relationship("Product", back_populates="supplier")
-    
+    # supplied_products = relationship("Product", back_populates="supplier")
     # Customer-specific relationships
-    orders = relationship("Order", back_populates="customer")
-    favorite_products = relationship("Product", secondary="customer_favorite_products")
-    
+    # favorite_products = relationship("Product", secondary="customer_favorite_products")
     # Cashier-specific relationships
-    transactions = relationship("Transaction", back_populates="cashier")
+    # transactions = relationship("Transaction", back_populates="cashier")
     
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
@@ -202,7 +196,8 @@ class User(Base):
         if self.role == UserRole.OWNER:
             return True
         if self.role == UserRole.BRANCH_MANAGER:
-            return self.managed_branch_id == branch_id
+            # return self.managed_branch_id == branch_id
+            return False
         return False
     
     def can_access_branch(self, branch_id: int) -> bool:
@@ -305,4 +300,20 @@ class Notification(Base):
         Mark notification as read.
         """
         self.is_read = True
-        session.commit() 
+        session.commit()
+
+# After all class definitions
+User.owned_businesses = relationship("Business", back_populates="owner")
+User.assigned_branches = relationship(
+    "Branch",
+    secondary=user_branches,
+    back_populates="employees"
+)
+User.supplied_products = relationship("Product", back_populates="supplier")
+# User.favorite_products = relationship("Product", secondary="customer_favorite_products")
+User.transactions = relationship("Transaction", back_populates="cashier", foreign_keys=[Transaction.cashier_id])
+User.managed_branches = relationship(
+    "Branch",
+    back_populates="manager",
+    foreign_keys="Branch.manager_id"
+) 

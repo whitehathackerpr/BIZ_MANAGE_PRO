@@ -1,161 +1,59 @@
 import React from 'react';
+import { useForm } from 'react-hook-form';
+import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { useAuth } from '../providers/AuthProvider';
-import { useStore } from '../providers/StoreProvider';
+import { loginThunk, getCurrentUser } from '../features/auth';
+import { RootState, AppDispatch } from '../app';
 
-export const Login: React.FC = () => {
+interface LoginFormInputs {
+  email: string;
+  password: string;
+}
+
+const Login: React.FC = () => {
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormInputs>();
+  const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const { dispatch } = useStore();
-  const [email, setEmail] = React.useState('');
-  const [password, setPassword] = React.useState('');
-  const [error, setError] = React.useState('');
-  const [isLoading, setIsLoading] = React.useState(false);
+  const { loading, error } = useSelector((state: RootState) => state.auth);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
-
-    try {
-      await login(email, password);
-      dispatch({
-        type: 'ADD_NOTIFICATION',
-        payload: {
-          id: Date.now().toString(),
-          type: 'success',
-          message: 'Successfully logged in',
-          timestamp: new Date().toISOString(),
-        },
-      });
+  const onSubmit = async (data: LoginFormInputs) => {
+    const result = await dispatch(loginThunk(data));
+    if (loginThunk.fulfilled.match(result)) {
+      await dispatch(getCurrentUser());
       navigate('/dashboard');
-    } catch (err) {
-      setError('Invalid email or password');
-      dispatch({
-        type: 'ADD_NOTIFICATION',
-        payload: {
-          id: Date.now().toString(),
-          type: 'error',
-          message: 'Failed to login',
-          timestamp: new Date().toISOString(),
-        },
-      });
-    } finally {
-      setIsLoading(false);
     }
+    // error is handled by Redux state
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
-            Sign in to your account
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Or{' '}
-            <button
-              onClick={() => navigate('/register')}
-              className="font-medium text-primary hover:text-primary-dark"
-            >
-              create a new account
-            </button>
-          </p>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+      <form onSubmit={handleSubmit(onSubmit)} className="bg-white p-8 rounded shadow-md w-full max-w-md">
+        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+        {error && <div className="text-red-500 text-center mb-4">{error}</div>}
+        <div className="mb-4">
+          <label className="block mb-1 font-semibold">Email</label>
+          <input
+            type="email"
+            {...register('email', { required: 'Email is required' })}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300"
+          />
+          {errors.email && <span className="text-red-500 text-sm">{errors.email.message}</span>}
         </div>
-        <Card>
-          <form className="mt-8 space-y-6 p-6" onSubmit={handleSubmit}>
-            {error && (
-              <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-4">
-                <div className="flex">
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                      {error}
-                    </h3>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="rounded-md shadow-sm space-y-4">
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Email address
-                </label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Password
-                </label>
-                <Input
-                  id="password"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                />
-                <label
-                  htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-900 dark:text-gray-300"
-                >
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <button
-                  type="button"
-                  onClick={() => navigate('/forgot-password')}
-                  className="font-medium text-primary hover:text-primary-dark"
-                >
-                  Forgot your password?
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </div>
-          </form>
-        </Card>
-      </div>
+        <div className="mb-6">
+          <label className="block mb-1 font-semibold">Password</label>
+          <input
+            type="password"
+            {...register('password', { required: 'Password is required' })}
+            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-blue-300"
+          />
+          {errors.password && <span className="text-red-500 text-sm">{errors.password.message}</span>}
+        </div>
+        <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700" disabled={loading}>
+          {loading ? 'Logging in...' : 'Login'}
+        </button>
+      </form>
     </div>
   );
-}; 
+};
+
+export default Login; 

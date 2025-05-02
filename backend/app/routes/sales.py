@@ -10,6 +10,7 @@ from ..models import Sale, SaleItem, Order, OrderItem, Product, Transaction, Use
 from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.validation import validate_sale_data
+from app.schemas.product import ProductResponse
 
 router = APIRouter()
 
@@ -37,7 +38,7 @@ class SaleCreate(SaleBase):
 class SaleItemResponse(SaleItemBase):
     id: int
     sale_id: int
-    product: Product
+    product: ProductResponse
     subtotal: float
 
     class Config:
@@ -85,6 +86,11 @@ async def get_sales(
     ).limit(per_page).all()
     
     total = query.count()
+    
+    # Convert product to ProductResponse for each sale item in each sale
+    for sale in sales:
+        for item in getattr(sale, 'items', []):
+            item.product = ProductResponse.from_orm(item.product) if item.product else None
     
     return {
         "sales": sales,
@@ -182,6 +188,8 @@ async def get_sale(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Sale not found"
         )
+    for item in getattr(sale, 'items', []):
+        item.product = ProductResponse.from_orm(item.product) if item.product else None
     return sale
 
 @router.put("/sales/{sale_id}", response_model=SaleResponse)

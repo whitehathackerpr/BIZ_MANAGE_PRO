@@ -1,23 +1,25 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchRisk(db.Model):
+class BranchRisk(Base):
     __tablename__ = 'branch_risks'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    risk_type = db.Column(db.String(50), nullable=False)  # operational, financial, strategic, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, mitigated
-    last_assessment = db.Column(db.DateTime)
-    next_assessment = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    risk_type = Column(String(50), nullable=False)  # operational, financial, strategic, etc.
+    status = Column(String(20), default='active')  # active, inactive, mitigated
+    last_assessment = Column(DateTime)
+    next_assessment = Column(DateTime)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='risk_systems')
-    creator = db.relationship('User', backref='created_risks')
+    branch = relationship('Branch', backref='risk_systems')
+    creator = relationship('User', backref='created_risks')
 
     def to_dict(self):
         return {
@@ -38,26 +40,26 @@ class BranchRisk(db.Model):
     def __repr__(self):
         return f'<BranchRisk {self.branch.name} - {self.risk_type}>'
 
-class BranchRiskAssessment(db.Model):
+class BranchRiskAssessment(Base):
     __tablename__ = 'branch_risk_assessments'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    risk_id = db.Column(db.Integer, db.ForeignKey('branch_risks.id'), nullable=False)
-    assessor_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    assessment_date = db.Column(db.DateTime, nullable=False)
-    assessment_type = db.Column(db.String(50), nullable=False)  # routine, special, compliance
-    findings = db.Column(db.JSON, nullable=False)  # List of assessment findings
-    recommendations = db.Column(db.Text)
-    status = db.Column(db.String(20), default='pending')  # pending, completed, failed
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    risk_id = Column(Integer, ForeignKey('branch_risks.id'), nullable=False)
+    assessor_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    assessment_date = Column(DateTime, nullable=False)
+    assessment_type = Column(String(50), nullable=False)  # routine, special, compliance
+    findings = Column(JSON, nullable=False)  # List of assessment findings
+    recommendations = Column(Text)
+    status = Column(String(20), default='pending')  # pending, completed, failed
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='risk_assessments')
-    risk = db.relationship('BranchRisk', backref='assessments')
-    assessor = db.relationship('User', backref='conducted_assessments')
+    branch = relationship('Branch', backref='risk_assessments')
+    risk = relationship('BranchRisk', backref='assessments')
+    assessor = relationship('User', backref='conducted_assessments')
 
     def to_dict(self):
         return {
@@ -81,30 +83,30 @@ class BranchRiskAssessment(db.Model):
     def __repr__(self):
         return f'<BranchRiskAssessment {self.branch.name} - {self.assessment_date}>'
 
-class BranchRiskMitigation(db.Model):
+class BranchRiskMitigation(Base):
     __tablename__ = 'branch_risk_mitigations'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    risk_id = db.Column(db.Integer, db.ForeignKey('branch_risks.id'), nullable=False)
-    mitigation_type = db.Column(db.String(50), nullable=False)  # control, transfer, avoid, accept
-    description = db.Column(db.Text, nullable=False)
-    priority = db.Column(db.String(20), default='medium')  # low, medium, high, urgent
-    status = db.Column(db.String(20), default='pending')  # pending, in_progress, completed
-    start_date = db.Column(db.DateTime)
-    end_date = db.Column(db.DateTime)
-    assigned_to = db.Column(db.Integer, db.ForeignKey('users.id'))
-    cost = db.Column(db.Float)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    risk_id = Column(Integer, ForeignKey('branch_risks.id'), nullable=False)
+    mitigation_type = Column(String(50), nullable=False)  # control, transfer, avoid, accept
+    description = Column(Text, nullable=False)
+    priority = Column(String(20), default='medium')  # low, medium, high, urgent
+    status = Column(String(20), default='pending')  # pending, in_progress, completed
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    assigned_to = Column(Integer, ForeignKey('users.id'))
+    cost = Column(Float)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='risk_mitigations')
-    risk = db.relationship('BranchRisk', backref='mitigations')
-    assignee = db.relationship('User', foreign_keys=[assigned_to], backref='assigned_mitigations')
-    creator = db.relationship('User', foreign_keys=[created_by], backref='created_mitigations')
+    branch = relationship('Branch', backref='risk_mitigations')
+    risk = relationship('BranchRisk', backref='mitigations')
+    assignee = relationship('User', foreign_keys=[assigned_to], backref='assigned_mitigations')
+    creator = relationship('User', foreign_keys=[created_by], backref='created_mitigations')
 
     def to_dict(self):
         return {

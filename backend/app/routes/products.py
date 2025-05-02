@@ -6,11 +6,12 @@ from pydantic import BaseModel
 from datetime import datetime
 from sqlalchemy import or_
 
-from ..models import Product, Category, ProductImage, ProductVariant, Barcode, User
+from ..models import Product, Category, ProductImage, ProductVariant, User
 from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.images import save_image, delete_image
 from ..utils.validation import validate_product_data
+from app.schemas.product import ProductImageResponse, ProductVariantResponse
 
 router = APIRouter()
 
@@ -34,8 +35,8 @@ class ProductCreate(ProductBase):
 class ProductResponse(ProductBase):
     id: int
     created_at: datetime
-    images: List[ProductImage]
-    variants: List[ProductVariant]
+    images: List[ProductImageResponse]
+    variants: List[ProductVariantResponse]
 
     class Config:
         from_attributes = True
@@ -105,6 +106,11 @@ async def get_products(
         .limit(limit)\
         .all()
     
+    # Convert images and variants to Pydantic response models for each product
+    for product in products:
+        product.images = [ProductImageResponse.from_orm(img) for img in getattr(product, 'images', [])]
+        product.variants = [ProductVariantResponse.from_orm(var) for var in getattr(product, 'variants', [])]
+    
     return products
 
 @router.post("/products", response_model=ProductResponse, status_code=status.HTTP_201_CREATED)
@@ -160,6 +166,8 @@ async def get_product(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found"
         )
+    product.images = [ProductImageResponse.from_orm(img) for img in getattr(product, 'images', [])]
+    product.variants = [ProductVariantResponse.from_orm(var) for var in getattr(product, 'variants', [])]
     return product
 
 @router.put("/products/{product_id}", response_model=ProductResponse)

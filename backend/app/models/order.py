@@ -24,12 +24,16 @@ class Order(Base):
     notes = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch_id = Column(Integer, ForeignKey('branches.id'))
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=True)
     
     # Relationships
     items = relationship('OrderItem', backref='order', lazy='dynamic', cascade='all, delete-orphan')
     payments = relationship('Payment', backref='order', lazy='dynamic')
     shipping_address = relationship('Address', foreign_keys=[shipping_address_id])
     billing_address = relationship('Address', foreign_keys=[billing_address_id])
+    branch = relationship('Branch', back_populates='orders')
+    customer = relationship('Customer', backref='orders')
     
     @hybrid_property
     def status_display(self):

@@ -8,11 +8,8 @@ from sqlalchemy import func
 
 from ..services.analytics_service import AnalyticsService
 from ..utils.decorators import admin_required
-from ..models import (
-    Expense, Revenue, FinancialReport, SaleItem, Sale,
-    SalesForecast, RevenueForecast, InventoryTransaction,
-    Product, User
-)
+from ..models import SaleItem, Sale, Product, User
+from ..models import Expense, Revenue, FinancialReport
 from ..extensions import get_db
 
 router = APIRouter()
@@ -336,6 +333,20 @@ async def get_financial_report(
         
     except Exception as e:
         db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@router.get("/suppliers")
+async def get_supplier_analytics(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    try:
+        metrics = AnalyticsService.get_supplier_metrics()
+        return {"supplier_metrics": metrics}
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

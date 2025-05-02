@@ -1,22 +1,26 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float, Date, Time
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchService(db.Model):
+class BranchService(Base):
     __tablename__ = 'branch_services'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    name = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    price = db.Column(db.Float, nullable=False)
-    duration = db.Column(db.Integer)  # Duration in minutes
-    category = db.Column(db.String(100))
-    status = db.Column(db.String(20), default='active')  # active, inactive, discontinued
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    price = Column(Float, nullable=False)
+    duration = Column(Integer)  # Duration in minutes
+    category = Column(String(100))
+    status = Column(String(20), default='active')  # active, inactive, discontinued
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='services')
+    branch = relationship('Branch', backref='services')
+    schedules = relationship('BranchServiceSchedule', back_populates='service')
+    appointments = relationship('BranchServiceAppointment', back_populates='service')
 
     def to_dict(self):
         return {
@@ -36,20 +40,21 @@ class BranchService(db.Model):
     def __repr__(self):
         return f'<BranchService {self.branch.name} - {self.name}>'
 
-class BranchServiceSchedule(db.Model):
+class BranchServiceSchedule(Base):
     __tablename__ = 'branch_service_schedules'
 
-    id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey('branch_services.id'), nullable=False)
-    day_of_week = db.Column(db.Integer, nullable=False)  # 0-6 for Monday-Sunday
-    start_time = db.Column(db.Time, nullable=False)
-    end_time = db.Column(db.Time, nullable=False)
-    max_appointments = db.Column(db.Integer, default=1)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    service_id = Column(Integer, ForeignKey('branch_services.id'), nullable=False)
+    day_of_week = Column(Integer, nullable=False)  # 0-6 for Monday-Sunday
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    max_appointments = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    service = db.relationship('BranchService', backref='schedules')
+    service = relationship('BranchService', back_populates='schedules')
+    appointments = relationship('BranchServiceAppointment', back_populates='schedule')
 
     def to_dict(self):
         return {
@@ -68,24 +73,26 @@ class BranchServiceSchedule(db.Model):
     def __repr__(self):
         return f'<BranchServiceSchedule {self.service.name} - {self.day_of_week}>'
 
-class BranchServiceAppointment(db.Model):
+class BranchServiceAppointment(Base):
     __tablename__ = 'branch_service_appointments'
 
-    id = db.Column(db.Integer, primary_key=True)
-    service_id = db.Column(db.Integer, db.ForeignKey('branch_services.id'), nullable=False)
-    customer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    staff_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    appointment_date = db.Column(db.Date, nullable=False)
-    appointment_time = db.Column(db.Time, nullable=False)
-    status = db.Column(db.String(20), default='scheduled')  # scheduled, confirmed, completed, cancelled
-    notes = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    service_id = Column(Integer, ForeignKey('branch_services.id'), nullable=False)
+    schedule_id = Column(Integer, ForeignKey('branch_service_schedules.id'))
+    customer_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    staff_id = Column(Integer, ForeignKey('users.id'))
+    appointment_date = Column(Date, nullable=False)
+    appointment_time = Column(Time, nullable=False)
+    status = Column(String(20), default='scheduled')  # scheduled, confirmed, completed, cancelled
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    service = db.relationship('BranchService', backref='appointments')
-    customer = db.relationship('User', foreign_keys=[customer_id], backref='service_appointments')
-    staff = db.relationship('User', foreign_keys=[staff_id], backref='staff_appointments')
+    service = relationship('BranchService', back_populates='appointments')
+    schedule = relationship('BranchServiceSchedule', back_populates='appointments')
+    customer = relationship('User', foreign_keys=[customer_id], backref='service_appointments')
+    staff = relationship('User', foreign_keys=[staff_id], backref='staff_appointments')
 
     def to_dict(self):
         return {

@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from ..models import Branch, BranchInventory, User, Sale
 from ..services.analytics_service import AnalyticsService
 from ..extensions import get_db
+from app.schemas.user import UserResponse
+from app.schemas.inventory import BranchInventoryResponse
 
 router = APIRouter()
 
@@ -26,8 +28,8 @@ class BranchCreate(BranchBase):
 class BranchResponse(BranchBase):
     id: int
     created_at: datetime
-    users: List[User]
-    inventory: List[BranchInventory]
+    users: List[UserResponse]
+    inventory: List[BranchInventoryResponse]
 
     class Config:
         from_attributes = True
@@ -320,7 +322,7 @@ async def update_branch_settings(
     return branch.settings
 
 # Branch Users Endpoints
-@router.get("/branches/{branch_id}/users", response_model=List[User])
+@router.get("/branches/{branch_id}/users", response_model=List[UserResponse])
 async def get_branch_users(
     branch_id: int,
     db: Session = Depends(get_db),

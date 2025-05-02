@@ -5,7 +5,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from ..models import Chat, ChatMessage, ChatParticipant, User
+from ..models import User
 from ..extensions import get_db
 from ..utils.decorators import admin_required
 from ..utils.notifications import create_notification
@@ -20,17 +20,6 @@ class ChatBase(BaseModel):
 
 class ChatCreate(ChatBase):
     pass
-
-class ChatResponse(ChatBase):
-    id: int
-    created_by: int
-    created_at: datetime
-    updated_at: datetime
-    messages: List[ChatMessage]
-    participants: List[ChatParticipant]
-
-    class Config:
-        from_attributes = True
 
 class ChatMessageBase(BaseModel):
     content: str
@@ -52,6 +41,17 @@ class ChatParticipantResponse(ChatParticipantBase):
     id: int
     chat_id: int
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ChatResponse(ChatBase):
+    id: int
+    created_by: int
+    created_at: datetime
+    updated_at: datetime
+    messages: List[ChatMessageResponse]
+    participants: List[ChatParticipantResponse]
 
     class Config:
         from_attributes = True

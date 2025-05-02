@@ -1,23 +1,25 @@
-from app import db
+from ..extensions import Base
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, JSON
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
-class BranchQuality(db.Model):
+class BranchQuality(Base):
     __tablename__ = 'branch_quality'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    quality_type = db.Column(db.String(50), nullable=False)  # product, service, process, etc.
-    status = db.Column(db.String(20), default='active')  # active, inactive, maintenance
-    last_review = db.Column(db.DateTime)
-    next_review = db.Column(db.DateTime)
-    notes = db.Column(db.Text)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    quality_type = Column(String(50), nullable=False)  # product, service, process, etc.
+    status = Column(String(20), default='active')  # active, inactive, maintenance
+    last_review = Column(DateTime)
+    next_review = Column(DateTime)
+    notes = Column(Text)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='quality_systems')
-    creator = db.relationship('User', backref='created_quality')
+    branch = relationship('Branch', backref='quality_systems')
+    creator = relationship('User', backref='created_quality')
 
     def to_dict(self):
         return {
@@ -38,26 +40,26 @@ class BranchQuality(db.Model):
     def __repr__(self):
         return f'<BranchQuality {self.branch.name} - {self.quality_type}>'
 
-class BranchQualityReview(db.Model):
+class BranchQualityReview(Base):
     __tablename__ = 'branch_quality_reviews'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    quality_id = db.Column(db.Integer, db.ForeignKey('branch_quality.id'), nullable=False)
-    reviewer_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    review_date = db.Column(db.DateTime, nullable=False)
-    review_type = db.Column(db.String(50), nullable=False)  # routine, special, compliance
-    findings = db.Column(db.JSON, nullable=False)  # List of review findings
-    recommendations = db.Column(db.Text)
-    status = db.Column(db.String(20), default='pending')  # pending, completed, failed
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    quality_id = Column(Integer, ForeignKey('branch_quality.id'), nullable=False)
+    reviewer_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    review_date = Column(DateTime, nullable=False)
+    review_type = Column(String(50), nullable=False)  # routine, special, compliance
+    findings = Column(JSON, nullable=False)  # List of review findings
+    recommendations = Column(Text)
+    status = Column(String(20), default='pending')  # pending, completed, failed
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='quality_reviews')
-    quality = db.relationship('BranchQuality', backref='reviews')
-    reviewer = db.relationship('User', backref='conducted_reviews')
+    branch = relationship('Branch', backref='quality_reviews')
+    quality = relationship('BranchQuality', backref='reviews')
+    reviewer = relationship('User', backref='conducted_reviews')
 
     def to_dict(self):
         return {
@@ -81,31 +83,31 @@ class BranchQualityReview(db.Model):
     def __repr__(self):
         return f'<BranchQualityReview {self.branch.name} - {self.review_date}>'
 
-class BranchQualityIssue(db.Model):
+class BranchQualityIssue(Base):
     __tablename__ = 'branch_quality_issues'
 
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    issue_type = db.Column(db.String(50), nullable=False)  # defect, non_conformance, complaint, etc.
-    severity = db.Column(db.String(20), default='medium')  # low, medium, high, critical
-    description = db.Column(db.Text, nullable=False)
-    location = db.Column(db.String(200))
-    timestamp = db.Column(db.DateTime, nullable=False)
-    reported_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    affected_items = db.Column(db.JSON)  # List of affected items
-    immediate_actions = db.Column(db.Text)
-    status = db.Column(db.String(20), default='open')  # open, investigating, resolved
-    resolution = db.Column(db.Text)
-    resolved_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    resolved_at = db.Column(db.DateTime)
-    photos = db.Column(db.JSON)  # List of photo URLs
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    issue_type = Column(String(50), nullable=False)  # defect, non_conformance, complaint, etc.
+    severity = Column(String(20), default='medium')  # low, medium, high, critical
+    description = Column(Text, nullable=False)
+    location = Column(String(200))
+    timestamp = Column(DateTime, nullable=False)
+    reported_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    affected_items = Column(JSON)  # List of affected items
+    immediate_actions = Column(Text)
+    status = Column(String(20), default='open')  # open, investigating, resolved
+    resolution = Column(Text)
+    resolved_by = Column(Integer, ForeignKey('users.id'))
+    resolved_at = Column(DateTime)
+    photos = Column(JSON)  # List of photo URLs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    branch = db.relationship('Branch', backref='quality_issues')
-    reporter = db.relationship('User', foreign_keys=[reported_by], backref='reported_quality_issues')
-    resolver = db.relationship('User', foreign_keys=[resolved_by], backref='resolved_quality_issues')
+    branch = relationship('Branch', backref='quality_issues')
+    reporter = relationship('User', foreign_keys=[reported_by], backref='reported_quality_issues')
+    resolver = relationship('User', foreign_keys=[resolved_by], backref='resolved_quality_issues')
 
     def to_dict(self):
         return {

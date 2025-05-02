@@ -5,6 +5,9 @@ import uvicorn
 from dotenv import load_dotenv
 from alembic.config import Config as AlembicConfig
 from alembic import command
+from app.db.session import SessionLocal, engine
+from app.db.base import Base
+from app.db.init_db import init_db
 
 # Add the parent directory to sys.path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -58,6 +61,28 @@ def ensure_directories():
     
     print("Directory structure verified!")
 
+def initialize_database():
+    """Initialize database with tables and initial data"""
+    try:
+        # Create database tables
+        Base.metadata.create_all(bind=engine)
+        
+        # Initialize database with required data
+        db = SessionLocal()
+        try:
+            init_db(db)
+            db.commit()
+            print("Database initialized successfully!")
+        except Exception as e:
+            db.rollback()
+            print(f"Error initializing database: {str(e)}")
+            raise
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Error creating database tables: {str(e)}")
+        raise
+
 def main():
     """Main function to run the integrated FastAPI application"""
     try:
@@ -75,10 +100,12 @@ def main():
         logger.info(f"Debug mode: {reload}")
         logger.info(f"SSL enabled: {bool(ssl_keyfile and ssl_certfile)}")
 
-        # Run the application - This now runs the integrated FastAPI application
-        # that combines both the previous FastAPI and Flask apps
+        # Initialize database
+        initialize_database()
+
+        # Run the application
         uvicorn.run(
-            "main:app",
+            "app.main:app",
             host=host,
             port=port,
             reload=reload,

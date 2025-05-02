@@ -49,12 +49,15 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     # Email Settings
-    SMTP_HOST: str = Field(default="localhost")
-    SMTP_PORT: int = Field(default=1025)
-    SMTP_USER: str = Field(default="test")
-    SMTP_PASSWORD: str = Field(default="test")
-    EMAIL_FROM: str = Field(default="test@example.com")
-    EMAIL_TEMPLATES_DIR: str = "app/email-templates"
+    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "test@example.com")
+    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "test_password")
+    MAIL_FROM: str = os.getenv("MAIL_FROM", "test@example.com")
+    MAIL_PORT: int = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_TLS: bool = True
+    MAIL_SSL: bool = False
+    USE_CREDENTIALS: bool = True
+    VALIDATE_CERTS: bool = True
 
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"
@@ -125,17 +128,6 @@ class Settings(BaseSettings):
     FIRST_SUPERUSER_PASSWORD: str = "changeme"
     FIRST_ADMIN: str = "admin@example.com"
     FIRST_ADMIN_PASSWORD: str = "changeme"
-
-    # Email Configuration
-    MAIL_USERNAME: str = os.getenv("MAIL_USERNAME", "")
-    MAIL_PASSWORD: str = os.getenv("MAIL_PASSWORD", "")
-    MAIL_FROM: str = os.getenv("MAIL_FROM", "noreply@bizmanage.com")
-    MAIL_PORT: int = int(os.getenv("MAIL_PORT", 587))
-    MAIL_SERVER: str = os.getenv("MAIL_SERVER", "smtp.gmail.com")
-    MAIL_TLS: bool = True
-    MAIL_SSL: bool = False
-    USE_CREDENTIALS: bool = True
-    VALIDATE_CERTS: bool = True
 
     @field_validator("ALLOWED_ORIGINS", "CORS_ORIGINS", mode="before")
     @classmethod

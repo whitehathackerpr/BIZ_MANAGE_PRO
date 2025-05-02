@@ -33,4 +33,15 @@ class User(UserInDBBase):
 
 # Additional properties stored in DB
 class UserInDB(UserInDBBase):
-    hashed_password: str 
+    hashed_password: str
+
+class UserResponse(BaseModel):
+    id: int
+    email: EmailStr
+    is_active: bool
+    is_superuser: bool
+    full_name: Optional[str] = None
+    roles: List[Role] = []
+
+    class Config:
+        from_attributes = True 

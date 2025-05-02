@@ -138,4 +138,48 @@ class ProductList(BaseModel):
         total (int): Total number of products
     """
     items: List[Product]
-    total: int 
+    total: int
+
+class ProductImageResponse(BaseModel):
+    id: int
+    product_id: int
+    filename: str
+    url: str
+    is_primary: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ProductVariantResponse(BaseModel):
+    id: int
+    product_id: int
+    name: str
+    sku: str
+    price_adjustment: float
+    stock: int
+    attributes: Optional[dict] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ProductResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    price: float
+    stock: int = 0
+    category_id: Optional[int] = None
+    sku: str
+    barcode: Optional[str] = None
+    weight: Optional[float] = None
+    dimensions: Optional[str] = None
+    min_stock_level: int = 10
+    supplier_id: Optional[int] = None
+    created_at: datetime
+    images: List[ProductImageResponse]
+    variants: List[ProductVariantResponse]
+
+    class Config:
+        from_attributes = True 

@@ -1,25 +1,27 @@
-from app import db
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
+from ..extensions import Base
 
-class BranchSurvey(db.Model):
+class BranchSurvey(Base):
     __tablename__ = 'branch_surveys'
-
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    survey_type = db.Column(db.String(50), nullable=False)  # customer, employee, service, etc.
-    questions = db.Column(db.JSON, nullable=False)  # List of survey questions
-    status = db.Column(db.String(20), default='draft')  # draft, active, closed
-    start_date = db.Column(db.DateTime)
-    end_date = db.Column(db.DateTime)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    survey_type = Column(String(50), nullable=False)  # customer, employee, service, etc.
+    questions = Column(Text, nullable=False)  # List of survey questions
+    status = Column(String(20), default='draft')  # draft, active, closed
+    start_date = Column(DateTime)
+    end_date = Column(DateTime)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    responses = relationship('BranchSurveyResponse', back_populates='survey')
 
     # Relationships
-    branch = db.relationship('Branch', backref='surveys')
-    creator = db.relationship('User', backref='created_surveys')
+    branch = relationship('Branch', backref='surveys')
+    creator = relationship('User', backref='created_surveys')
 
     def to_dict(self):
         return {
@@ -40,24 +42,21 @@ class BranchSurvey(db.Model):
         }
 
     def __repr__(self):
-        return f'<BranchSurvey {self.branch.name} - {self.title}>'
+        return f'<BranchSurvey {self.title}>'
 
-class BranchSurveyResponse(db.Model):
+class BranchSurveyResponse(Base):
     __tablename__ = 'branch_survey_responses'
-
-    id = db.Column(db.Integer, primary_key=True)
-    survey_id = db.Column(db.Integer, db.ForeignKey('branch_surveys.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    answers = db.Column(db.JSON, nullable=False)  # User's answers to survey questions
-    status = db.Column(db.String(20), default='completed')  # completed, partial, abandoned
-    started_at = db.Column(db.DateTime, nullable=False)
-    completed_at = db.Column(db.DateTime)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    survey = db.relationship('BranchSurvey', backref='responses')
-    user = db.relationship('User', backref='survey_responses')
+    id = Column(Integer, primary_key=True)
+    survey_id = Column(Integer, ForeignKey('branch_surveys.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    answers = Column(Text, nullable=False)  # User's answers to survey questions
+    status = Column(String(20), default='completed')  # completed, partial, abandoned
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    survey = relationship('BranchSurvey', back_populates='responses')
+    user = relationship('User', backref='survey_responses')
 
     def to_dict(self):
         return {
@@ -76,28 +75,25 @@ class BranchSurveyResponse(db.Model):
         }
 
     def __repr__(self):
-        return f'<BranchSurveyResponse {self.survey.title} - {self.user.name}>'
+        return f'<BranchSurveyResponse {self.id}>'
 
-class BranchFeedback(db.Model):
-    __tablename__ = 'branch_feedback'
-
-    id = db.Column(db.Integer, primary_key=True)
-    branch_id = db.Column(db.Integer, db.ForeignKey('branches.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    feedback_type = db.Column(db.String(50), nullable=False)  # service, product, experience, etc.
-    rating = db.Column(db.Integer)  # 1-5 rating
-    content = db.Column(db.Text, nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, reviewed, resolved
-    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    reviewed_at = db.Column(db.DateTime)
-    response = db.Column(db.Text)  # Branch's response to feedback
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationships
-    branch = db.relationship('Branch', backref='feedback')
-    user = db.relationship('User', foreign_keys=[user_id], backref='given_feedback')
-    reviewer = db.relationship('User', foreign_keys=[reviewed_by], backref='reviewed_feedback')
+class BranchFeedback(Base):
+    __tablename__ = 'branch_feedbacks'
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    feedback_type = Column(String(50), nullable=False)  # service, product, experience, etc.
+    rating = Column(Integer)  # 1-5 rating
+    content = Column(Text, nullable=False)
+    status = Column(String(20), default='pending')  # pending, reviewed, resolved
+    reviewed_by = Column(Integer, ForeignKey('users.id'))
+    reviewed_at = Column(DateTime)
+    response = Column(Text)  # Branch's response to feedback
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    branch = relationship('Branch', backref='feedbacks')
+    user = relationship('User', backref='feedbacks', foreign_keys=[user_id])
+    reviewer = relationship('User', foreign_keys=[reviewed_by], backref='reviewed_feedback')
 
     def to_dict(self):
         return {
@@ -119,4 +115,19 @@ class BranchFeedback(db.Model):
         }
 
     def __repr__(self):
-        return f'<BranchFeedback {self.branch.name} - {self.user.name}>' 
+        return f'<BranchFeedback {self.id}>'
+
+class CustomerFeedback(Base):
+    __tablename__ = 'customer_feedbacks'
+    id = Column(Integer, primary_key=True)
+    customer_id = Column(Integer, ForeignKey('customer.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('product.id'), nullable=False)
+    rating = Column(Integer, nullable=False)
+    comment = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    customer = relationship('Customer', backref='feedbacks')
+    product = relationship('Product')
+
+    def __repr__(self):
+        return f'<CustomerFeedback {self.id}>' 
