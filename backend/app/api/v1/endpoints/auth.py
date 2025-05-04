@@ -194,4 +194,130 @@ def reset_password(
     user.password_hash = hashed_password
     db.add(user)
     db.commit()
-    return {"msg": "Password updated successfully"} 
+    return {"msg": "Password updated successfully"}
+
+@router.post("/supplier/login", response_model=Token)
+async def supplier_login(
+    db: Session = Depends(deps.get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
+) -> Any:
+    """
+    Supplier login without Business ID.
+    """
+    user = crud.authenticate_supplier(db, email=form_data.username, password=form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
+    access_token = create_access_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    refresh_token = create_refresh_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+@router.post("/customer/login", response_model=Token)
+async def customer_login(
+    db: Session = Depends(deps.get_db),
+    form_data: OAuth2PasswordRequestForm = Depends()
+) -> Any:
+    """
+    Customer login without Business ID.
+    """
+    user = crud.authenticate_customer(db, email=form_data.username, password=form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
+    access_token = create_access_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    refresh_token = create_refresh_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    }
+
+@router.post("/login-with-business", response_model=Token)
+async def login_with_business(
+    db: Session = Depends(deps.get_db),
+    business_id: str = Depends(),
+    form_data: OAuth2PasswordRequestForm = Depends()
+) -> Any:
+    """
+    Login with Business ID, email, and password.
+    """
+    user = crud.authenticate_with_business(db, business_id=business_id, email=form_data.username, password=form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect Business ID, email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    elif not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
+        )
+    access_token = create_access_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        business_id=business_id
+    )
+    refresh_token = create_refresh_token(
+        subject=user.email,
+        user_id=user.id,
+        email=user.email,
+        is_superuser=user.is_admin,
+        is_active=user.is_active,
+        expires_delta=timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        business_id=business_id
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer",
+    } 

@@ -169,4 +169,39 @@ class BranchInventoryResponse(BaseModel):
     created_at: datetime
 
     class Config:
+        from_attributes = True
+
+# Inventory Transaction schemas
+class InventoryTransactionType(str, Enum):
+    PURCHASE = "purchase"
+    SALE = "sale"
+    ADJUSTMENT = "adjustment"
+    WASTE = "waste"
+    RETURN = "return"
+    TRANSFER = "transfer"
+
+class InventoryTransactionBase(BaseModel):
+    branch_id: int
+    product_id: int
+    quantity: conint(ge=1)
+    transaction_type: InventoryTransactionType
+    reference_id: Optional[int] = None
+    reference_type: Optional[str] = None
+    notes: Optional[str] = None
+
+class InventoryTransactionCreate(InventoryTransactionBase):
+    pass
+
+class InventoryTransactionUpdate(BaseModel):
+    quantity: Optional[conint(ge=1)] = None
+    notes: Optional[str] = None
+
+class InventoryTransactionResponse(InventoryTransactionBase):
+    id: int
+    created_by: int
+    created_at: datetime
+    branch_name: Optional[str] = None
+    product_name: Optional[str] = None
+
+    class Config:
         from_attributes = True 

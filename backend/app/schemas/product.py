@@ -182,4 +182,58 @@ class ProductResponse(BaseModel):
     variants: List[ProductVariantResponse]
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+class ProductSearchParams(BaseModel):
+    """
+    Schema for product search parameters.
+    
+    Attributes:
+        query (Optional[str]): Search query
+        category (Optional[str]): Category filter
+        min_price (Optional[float]): Minimum price filter
+        max_price (Optional[float]): Maximum price filter
+        in_stock (Optional[bool]): Filter for products in stock
+        branch_id (Optional[int]): Filter by branch
+        supplier_id (Optional[int]): Filter by supplier
+        sort_by (Optional[str]): Sort field
+        sort_order (Optional[str]): Sort order (asc/desc)
+    """
+    query: Optional[str] = None
+    category: Optional[str] = None
+    min_price: Optional[float] = Field(None, ge=0)
+    max_price: Optional[float] = Field(None, ge=0)
+    in_stock: Optional[bool] = None
+    branch_id: Optional[int] = None
+    supplier_id: Optional[int] = None
+    sort_by: Optional[str] = "name"
+    sort_order: Optional[str] = "asc"
+
+    @validator('max_price')
+    def validate_max_price(cls, v, values):
+        """
+        Validate that max_price is greater than or equal to min_price.
+        """
+        if 'min_price' in values and v is not None and values['min_price'] is not None and v < values['min_price']:
+            raise ValueError('max_price must be greater than or equal to min_price')
+        return v
+
+    @validator('sort_by')
+    def validate_sort_by(cls, v):
+        """
+        Validate that sort_by is a valid field.
+        """
+        valid_fields = ['name', 'price', 'created_at', 'stock', 'category']
+        if v not in valid_fields:
+            raise ValueError(f'sort_by must be one of {valid_fields}')
+        return v
+
+    @validator('sort_order')
+    def validate_sort_order(cls, v):
+        """
+        Validate that sort_order is a valid value.
+        """
+        valid_orders = ['asc', 'desc']
+        if v not in valid_orders:
+            raise ValueError(f'sort_order must be one of {valid_orders}')
+        return v 

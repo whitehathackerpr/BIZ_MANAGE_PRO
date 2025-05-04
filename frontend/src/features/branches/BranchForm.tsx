@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../../app/store';
 import { addBranch, editBranch } from './branchesSlice';
-import { Branch, BranchCreate, BranchUpdate } from './branchesAPI';
+import { Branch, BranchCreate, BranchUpdate, fetchManagers, User } from './branchesAPI';
 import { toast } from 'react-toastify';
 
 interface BranchFormProps {
@@ -20,6 +20,8 @@ const BranchForm: React.FC<BranchFormProps> = ({ businessId, branch, onClose }) 
     manager_id: undefined,
     business_id: businessId,
   });
+  const [managers, setManagers] = useState<User[]>([]);
+  const [loadingManagers, setLoadingManagers] = useState(false);
 
   useEffect(() => {
     if (branch) {
@@ -41,9 +43,17 @@ const BranchForm: React.FC<BranchFormProps> = ({ businessId, branch, onClose }) 
     }
   }, [branch, businessId]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    setLoadingManagers(true);
+    fetchManagers()
+      .then(setManagers)
+      .catch(() => setManagers([]))
+      .finally(() => setLoadingManagers(false));
+  }, []);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: name === 'manager_id' ? Number(value) : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -102,7 +112,21 @@ const BranchForm: React.FC<BranchFormProps> = ({ businessId, branch, onClose }) 
               className="input input-bordered w-full"
             />
           </div>
-          {/* Optionally add manager_id field here */}
+          <div className="mb-3">
+            <label className="block mb-1">Manager</label>
+            <select
+              name="manager_id"
+              value={form.manager_id || ''}
+              onChange={handleChange}
+              className="input input-bordered w-full"
+              disabled={loadingManagers}
+            >
+              <option value="">Select a manager</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+              ))}
+            </select>
+          </div>
           <div className="flex justify-end gap-2 mt-4">
             <button type="button" onClick={onClose} className="btn btn-secondary">Cancel</button>
             <button type="submit" className="btn btn-primary">{branch ? 'Update' : 'Create'}</button>

@@ -1,16 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from datetime import datetime, timedelta, UTC
 from sqlalchemy.orm import Session
-from ..models import User, Role
+from ..models import User, Role, Business, Customer, Supplier, Employee
 from ..extensions import get_db
 from ..utils.email import send_password_reset_email
 from ..utils.security import generate_reset_token, verify_reset_token
 from ..utils.auth import get_current_user
 from ..core.config import get_settings
 from ..auth.jwt import create_access_token, create_refresh_token, verify_token
+from jose import JWTError, jwt
+import bcrypt
+import uuid
 
 router = APIRouter(tags=["Authentication"])
 settings = get_settings()
@@ -48,6 +51,33 @@ class TokenData(BaseModel):
 class LoginRequest(BaseModel):
     email: str
     password: str
+
+# Secret key for JWT token
+SECRET_KEY = settings.SECRET_KEY
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+def hash_password(password: str) -> str:
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_pwd = bcrypt.hashpw(pwd_bytes, salt)
+    return hashed_pwd.decode('utf-8')
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(
+        plain_password.encode('utf-8'),
+        hashed_password.encode('utf-8')
+    )
 
 # Routes
 @router.post("/login", response_model=Token)
@@ -396,4 +426,119 @@ async def verify_email(
     user.is_active = True
     db.commit()
     
-    return {"message": "Email verified successfully"} 
+    return {"message": "Email verified successfully"}
+
+@router.post("/business-login", response_model=Token)
+async def login_with_business_id(
+    business_id: str, 
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db)
+):
+    """Login for staff using business ID"""
+    
+    # Find user by username (email)
+    user = db.query(User).filter(User.email == form_data.username).first()
+    if not user or user.role != "staff":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials or user is not staff",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verify password
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Check if user is active
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verify business ID
+    employee = db.query(Employee).filter(Employee.user_id == user.id).first()
+    if not employee or employee.business_id != business_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid business ID",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Create token data with business info
+    token_data = {
+        "sub": user.email,
+        "id": user.id,
+        "role": user.role,
+        "business_id": business_id
+    }
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data=token_data, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user_id": user.id, 
+        "email": user.email,
+        "role": user.role,
+    }
+
+@router.post("/refresh-token", response_model=Token)
+async def refresh_token(token: str, db: Session = Depends(get_db)):
+    """Refresh JWT token"""
+    try:
+        # Decode token
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Get user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        # Create new token data
+        token_data = {
+            "sub": user.email,
+            "id": user.id,
+            "role": user.role,
+        }
+        
+        # Create new access token
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data=token_data, expires_delta=access_token_expires
+        )
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user_id": user.id,
+            "email": user.email,
+            "role": user.role,
+        }
+    
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        ) 

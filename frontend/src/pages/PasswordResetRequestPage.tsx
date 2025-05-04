@@ -2,7 +2,21 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState, AppDispatch } from '../app/store';
 import { requestPasswordResetThunk, clearPasswordResetState } from '../features/auth/authSlice';
+import { 
+  Box, 
+  Button, 
+  Card,
+  CardContent,
+  Container,
+  TextField,
+  Typography,
+  Paper,
+  Alert,
+  CircularProgress
+} from '@mui/material';
+import { LockReset } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import { Link as RouterLink } from 'react-router-dom';
 
 const PasswordResetRequestPage: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -20,25 +34,108 @@ const PasswordResetRequestPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-lg mx-auto p-6 bg-white rounded shadow mt-10">
-      <h2 className="text-2xl font-bold mb-4">Reset Password</h2>
-      {passwordResetRequested ? (
-        <div className="text-green-600 font-semibold mb-2">Check your email for a reset code.</div>
-      ) : (
-        <form onSubmit={handleSubmit}>
-          <label className="block mb-1">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="input input-bordered w-full mb-2"
-            required
-          />
-          <button className="btn btn-primary" type="submit" disabled={passwordResetLoading}>Request Reset</button>
-        </form>
-      )}
-      {passwordResetError && <div className="text-red-500 mt-2">{passwordResetError}</div>}
-    </div>
+    <Container maxWidth="sm" sx={{ py: 8, minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
+      <Paper 
+        elevation={3} 
+        sx={{ 
+          width: '100%', 
+          borderRadius: 3,
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'grey.100',
+          backdropFilter: 'blur(20px)'
+        }}
+      >
+        <Box 
+          sx={{ 
+            p: 3,
+            bgcolor: 'primary.main',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <LockReset fontSize="large" />
+          <Typography variant="h5" fontWeight={700}>
+            Reset Password
+          </Typography>
+        </Box>
+        
+        <CardContent sx={{ p: 4 }}>
+          {passwordResetRequested ? (
+            <Box textAlign="center">
+              <Alert severity="success" sx={{ mb: 3 }}>
+                <Typography variant="body1">
+                  Check your email for a reset code. Please follow the instructions to reset your password.
+                </Typography>
+              </Alert>
+              <Button 
+                component={RouterLink} 
+                to="/password-reset-verify" 
+                variant="contained" 
+                color="primary" 
+                sx={{ mt: 2 }}
+              >
+                Enter Reset Code
+              </Button>
+            </Box>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <Typography variant="body1" color="text.secondary" mb={3}>
+                Enter your email address and we'll send you a link to reset your password.
+              </Typography>
+              
+              <TextField
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                fullWidth
+                required
+                margin="normal"
+                autoFocus
+                sx={{ mb: 2 }}
+                InputLabelProps={{ shrink: true }}
+              />
+              
+              <Button 
+                type="submit" 
+                variant="contained" 
+                color="primary" 
+                size="large" 
+                fullWidth 
+                disabled={passwordResetLoading}
+                sx={{ mt: 3, mb: 2, height: 48 }}
+              >
+                {passwordResetLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Request Password Reset'
+                )}
+              </Button>
+              
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <Button 
+                  component={RouterLink} 
+                  to="/login" 
+                  variant="text" 
+                  sx={{ textTransform: 'none' }}
+                >
+                  Back to Login
+                </Button>
+              </Box>
+            </form>
+          )}
+          
+          {passwordResetError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {passwordResetError}
+            </Alert>
+          )}
+        </CardContent>
+      </Paper>
+    </Container>
   );
 };
 

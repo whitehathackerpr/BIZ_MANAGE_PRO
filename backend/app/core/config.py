@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
     REDIS_PASSWORD: Optional[str] = None
+    
+    @property
+    def REDIS_URL(self) -> str:
+        """Build Redis URL from individual settings"""
+        password_part = f":{self.REDIS_PASSWORD}@" if self.REDIS_PASSWORD else ""
+        return f"redis://{password_part}{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     # JWT Settings
     JWT_SECRET_KEY: str = Field(default="jwt_dev_secret_key_change_in_production")

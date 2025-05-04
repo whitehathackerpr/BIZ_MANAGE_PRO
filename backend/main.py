@@ -139,11 +139,11 @@ REQUEST_LATENCY = Histogram(
 # Middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+    allow_origins=["*", "http://localhost:5173", "http://127.0.0.1:5173"],  # Allow specific origins and wildcard for development
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["Content-Type", "Authorization", "X-Total-Count"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers for simplicity in development
+    expose_headers=["Content-Type", "Authorization", "X-Total-Count", "Content-Disposition"],
     max_age=600,  # Cache preflight requests for 10 minutes
 )
 
@@ -223,8 +223,12 @@ from app.routes import (
     settings as settings_router,
     branch,
     websocket,
-    customers
+    customers,
+    sessions
 )
+
+# Import ML analytics router
+from app.api.v1.endpoints import ml_analytics
 
 # Include routers
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
@@ -240,6 +244,8 @@ app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Set
 app.include_router(health.router, prefix="/api/v1/health", tags=["Health"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])
 app.include_router(websocket.router, prefix="/api/v1/ws", tags=["WebSocket"])
+app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["Sessions"])
+app.include_router(ml_analytics.router, prefix="/api/v1/ml-analytics", tags=["ML Analytics"])
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")

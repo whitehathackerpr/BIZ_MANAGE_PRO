@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import os
 from app.config import get_settings
+import redis
 
 # Database
 settings = get_settings()
@@ -22,7 +23,7 @@ def get_db():
 db = SessionLocal()
 
 # Redis client - initialized later
-redis_client = None
+redis_client = redis.Redis(host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_DB, decode_responses=True)
 
 # Limiter object - placeholder for FastAPI limiter
 limiter = None

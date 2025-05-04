@@ -18,8 +18,9 @@ from .business import Business
 from .expense import Expense
 from .revenue import Revenue
 from .financial_report import FinancialReport
-from .inventory import BranchInventory
+from .inventory import BranchInventory, InventoryTransaction
 from .feedback import BranchFeedback
+from .session import Session
 
 # We now use SQLAlchemy directly instead of db.Model
 
@@ -60,5 +61,7 @@ __all__ = [
     'Revenue',
     'FinancialReport',
     'BranchInventory',
+    'InventoryTransaction',
     'BranchFeedback',
+    'Session',
 ] 

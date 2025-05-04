@@ -211,4 +211,42 @@ class InventoryTransfer(Base):
         }
 
     def __repr__(self):
-        return f'<InventoryTransfer {self.product.name} from {self.source_branch.name} to {self.target_branch.name}>' 
+        return f'<InventoryTransfer {self.product.name} from {self.source_branch.name} to {self.target_branch.name}>'
+
+class InventoryTransaction(Base):
+    __tablename__ = 'inventory_transactions'
+
+    id = Column(Integer, primary_key=True)
+    branch_id = Column(Integer, ForeignKey('branches.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
+    quantity = Column(Integer, nullable=False)
+    transaction_type = Column(String(20), nullable=False)  # purchase, sale, adjustment, waste, return
+    reference_id = Column(Integer)  # ID of the related transaction (sale_id, purchase_id, etc.)
+    reference_type = Column(String(20))  # Type of reference (sale, purchase, etc.)
+    notes = Column(String(500))
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    branch = relationship('Branch', backref='inventory_transactions')
+    product = relationship('Product', backref='inventory_transactions')
+    user = relationship('User', foreign_keys=[created_by], backref='inventory_transactions')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'branch_id': self.branch_id,
+            'branch_name': self.branch.name if self.branch else None,
+            'product_id': self.product_id,
+            'product_name': self.product.name if self.product else None,
+            'quantity': self.quantity,
+            'transaction_type': self.transaction_type,
+            'reference_id': self.reference_id,
+            'reference_type': self.reference_type,
+            'notes': self.notes,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat()
+        }
+    
+    def __repr__(self):
+        return f'<InventoryTransaction {self.transaction_type} {self.quantity} of {self.product_id} at {self.branch_id}>' 

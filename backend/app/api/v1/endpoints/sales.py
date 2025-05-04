@@ -3,13 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app import crud, models, schemas
 from app.api import deps
+from app.api.v1.endpoints.firebase import broadcast_notification
 
 router = APIRouter()
 
 # Sales Management Endpoints
 
 @router.post("/transactions/", response_model=schemas.Transaction)
-def create_transaction(
+async def create_transaction(
     *,
     db: Session = Depends(deps.get_db),
     transaction_in: schemas.TransactionCreate,
@@ -26,6 +27,7 @@ def create_transaction(
     transaction = crud.transaction.create_with_items(
         db=db, obj_in=transaction_in, cashier_id=current_user.id
     )
+    await broadcast_notification(f"New sale created by {current_user.email} for {transaction.total}!")
     return transaction
 
 @router.get("/transactions/", response_model=List[schemas.Transaction])
@@ -138,7 +140,7 @@ def cancel_transaction(
 # Order Management Endpoints
 
 @router.post("/orders/", response_model=schemas.Order)
-def create_order(
+async def create_order(
     *,
     db: Session = Depends(deps.get_db),
     order_in: schemas.OrderCreate,
@@ -155,6 +157,7 @@ def create_order(
     order = crud.order.create_with_items(
         db=db, obj_in=order_in, user_id=current_user.id
     )
+    await broadcast_notification(f"New order created by {current_user.email}!")
     return order
 
 @router.get("/orders/", response_model=List[schemas.Order])

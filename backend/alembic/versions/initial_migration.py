@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('name', sa.String(length=50), nullable=False),
         sa.Column('description', sa.String(length=200), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('name')
     )
@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column('is_active', sa.Boolean(), nullable=False),
         sa.Column('is_admin', sa.Boolean(), nullable=False),
         sa.Column('last_login', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('email')
     )
@@ -49,6 +49,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
         sa.PrimaryKeyConstraint('user_id', 'role_id')
     )
+    op.create_table('customers',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('email', sa.String(length=120), unique=True),
+        sa.Column('phone', sa.String(length=20)),
+        sa.Column('address', sa.Text()),
+        sa.Column('loyalty_points', sa.Integer(), default=0),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('email')
+    )
     # ### end Alembic commands ###
 
 
@@ -57,4 +68,5 @@ def downgrade() -> None:
     op.drop_table('user_roles')
     op.drop_table('users')
     op.drop_table('roles')
+    op.drop_table('customers')
     # ### end Alembic commands ### 

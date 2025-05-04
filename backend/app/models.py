@@ -329,7 +329,7 @@ class InventoryForecast(Base):
         return f'<InventoryForecast {self.id}>'
 
 class Customer(Base):
-    __tablename__ = "customer"
+    __tablename__ = "customers"
     
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)

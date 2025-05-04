@@ -25,6 +25,13 @@ export interface BranchUpdate {
   manager_id?: number;
 }
 
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
 export const fetchBranches = async (business_id: number): Promise<Branch[]> => {
   const res = await api.get<Branch[]>(`/business/${business_id}/branches/`);
   return res.data;
@@ -47,5 +54,10 @@ export const updateBranch = async (business_id: number, branch_id: number, data:
 
 export const deleteBranch = async (business_id: number, branch_id: number): Promise<Branch> => {
   const res = await api.delete<Branch>(`/business/${business_id}/branches/${branch_id}`);
+  return res.data;
+};
+
+export const fetchManagers = async (): Promise<User[]> => {
+  const res = await api.get<User[]>('/users?role=manager');
   return res.data;
 }; 

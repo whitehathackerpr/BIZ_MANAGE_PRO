@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '../../app/store';
 import { getBranches, removeBranch } from './branchesSlice';
 import { toast } from 'react-toastify';
-import { Branch } from './branchesAPI';
+import { Branch, fetchManagers, User } from './branchesAPI';
 
 interface BranchListProps {
   businessId: number;
@@ -14,9 +14,11 @@ interface BranchListProps {
 const BranchList: React.FC<BranchListProps> = ({ businessId, onEdit, onAdd }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { branches, loading, error } = useSelector((state: RootState) => state.branches);
+  const [managers, setManagers] = useState<User[]>([]);
 
   useEffect(() => {
     dispatch(getBranches(businessId));
+    fetchManagers().then(setManagers).catch(() => setManagers([]));
   }, [dispatch, businessId]);
 
   const handleDelete = async (branch: Branch) => {
@@ -28,6 +30,12 @@ const BranchList: React.FC<BranchListProps> = ({ businessId, onEdit, onAdd }) =>
         toast.error(err.message || 'Failed to delete branch');
       }
     }
+  };
+
+  const getManagerName = (manager_id?: number) => {
+    if (!manager_id) return '-';
+    const manager = managers.find((m) => m.id === manager_id);
+    return manager ? `${manager.name} (${manager.email})` : manager_id;
   };
 
   return (
@@ -44,6 +52,7 @@ const BranchList: React.FC<BranchListProps> = ({ businessId, onEdit, onAdd }) =>
             <th className="px-4 py-2 border">Name</th>
             <th className="px-4 py-2 border">Address</th>
             <th className="px-4 py-2 border">Phone</th>
+            <th className="px-4 py-2 border">Manager</th>
             <th className="px-4 py-2 border">Actions</th>
           </tr>
         </thead>
@@ -53,6 +62,7 @@ const BranchList: React.FC<BranchListProps> = ({ businessId, onEdit, onAdd }) =>
               <td className="border px-4 py-2">{branch.name}</td>
               <td className="border px-4 py-2">{branch.address || '-'}</td>
               <td className="border px-4 py-2">{branch.phone || '-'}</td>
+              <td className="border px-4 py-2">{getManagerName(branch.manager_id)}</td>
               <td className="border px-4 py-2">
                 <button onClick={() => onEdit(branch)} className="btn btn-sm btn-secondary mr-2">Edit</button>
                 <button onClick={() => handleDelete(branch)} className="btn btn-sm btn-danger">Delete</button>

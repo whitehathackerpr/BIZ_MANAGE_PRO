@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     profile,
     role,
     users,
+    two_factor_auth,
 )
 
 api_router = APIRouter()
@@ -51,3 +52,9 @@ api_router.include_router(role.router, prefix="/roles", tags=["roles"])
 
 # User Management
 api_router.include_router(users.router, prefix="/users", tags=["users"]) 
+# 2FA Management
+api_router.include_router(two_factor_auth.router, prefix="/2fa", tags=["2fa"])  
+# Transaction Management
+# api_router.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
+# api_router.include_router(orders.router, prefix="/orders", tags=["orders"])
+# api_router.include_router(payments.router, prefix="/payments", tags=["payments"])

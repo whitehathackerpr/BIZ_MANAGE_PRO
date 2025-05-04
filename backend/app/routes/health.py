@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 import psutil
 import os
 from datetime import datetime
+from typing import Dict, Any
 
 from app.extensions import get_db, redis_client
 from app.config import get_settings, Settings
@@ -89,4 +90,81 @@ async def detailed_health(
        health_info["checks"]["system"]["disk_usage"] > 90:
         health_info["status"] = "warning"
     
-    return health_info 
+    return health_info
+
+@router.get("/check")
+async def health_check() -> Dict[str, Any]:
+    """
+    Basic health check endpoint that returns the status of the API server.
+    This can be used by monitoring systems to check if the API is running.
+    """
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "BIZ_MANAGE_PRO API",
+        "version": "1.0.0"
+    }
+
+@router.get("/db-check")
+async def db_health_check(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """
+    Database health check endpoint that verifies connection to the database.
+    """
+    try:
+        # Execute a simple query to check database connectivity
+        db.execute("SELECT 1").scalar()
+        db_status = "ok"
+    except Exception as e:
+        db_status = "error"
+        return {
+            "status": "error",
+            "timestamp": datetime.utcnow().isoformat(),
+            "service": "BIZ_MANAGE_PRO API",
+            "database": db_status,
+            "error": str(e)
+        }
+
+    return {
+        "status": "ok",
+        "timestamp": datetime.utcnow().isoformat(),
+        "service": "BIZ_MANAGE_PRO API",
+        "database": db_status
+    }
+
+@router.get("/health/api-test")
+async def health_api_test() -> Dict[str, Any]:
+    """
+    API test endpoint for frontend communication testing that matches URL structure.
+    """
+    return {
+        "message": "API communication successful",
+        "timestamp": datetime.utcnow().isoformat(),
+        "test_data": {
+            "numbers": [1, 2, 3, 4, 5],
+            "string": "Hello from the backend!",
+            "boolean": True,
+            "object": {
+                "key1": "value1",
+                "key2": "value2"
+            }
+        }
+    }
+
+@router.get("/api-test")
+async def api_test() -> Dict[str, Any]:
+    """
+    Simple API test endpoint that returns test data for frontend communication testing.
+    """
+    return {
+        "message": "API communication successful",
+        "timestamp": datetime.utcnow().isoformat(),
+        "test_data": {
+            "numbers": [1, 2, 3, 4, 5],
+            "string": "Hello from the backend!",
+            "boolean": True,
+            "object": {
+                "key1": "value1",
+                "key2": "value2"
+            }
+        }
+    } 

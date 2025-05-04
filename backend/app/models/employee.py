@@ -8,6 +8,7 @@ class Employee(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    business_id = Column(Integer, ForeignKey('businesses.id'), nullable=True)
     employee_id = Column(String(20), unique=True, nullable=False)
     position = Column(String(100), nullable=False)
     department = Column(String(100))
@@ -34,6 +35,7 @@ class Employee(Base):
         return {
             'id': self.id,
             'user_id': self.user_id,
+            'business_id': self.business_id,
             'employee_id': self.employee_id,
             'position': self.position,
             'department': self.department,

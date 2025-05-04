@@ -8,13 +8,13 @@ settings = get_settings()
 # Configure FastMail
 try:
     mail_config = ConnectionConfig(
-        MAIL_USERNAME=settings.mail_username,
-        MAIL_PASSWORD=settings.mail_password,
-        MAIL_FROM=settings.mail_default_sender,
-        MAIL_PORT=settings.mail_port,
-        MAIL_SERVER=settings.mail_server,
-        MAIL_TLS=settings.mail_use_tls,
-        MAIL_SSL=False,
+        MAIL_USERNAME=settings.MAIL_USERNAME,
+        MAIL_PASSWORD=settings.MAIL_PASSWORD,
+        MAIL_FROM=settings.MAIL_FROM,
+        MAIL_PORT=settings.SMTP_PORT,
+        MAIL_SERVER=settings.SMTP_HOST,
+        MAIL_STARTTLS=True,
+        MAIL_SSL_TLS=False,
         USE_CREDENTIALS=True,
         VALIDATE_CERTS=True
     )

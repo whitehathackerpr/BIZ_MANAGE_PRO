@@ -4,6 +4,7 @@ import { RootState, AppDispatch } from '../app';
 import { getBusinesses, addBusiness, editBusiness, removeBusiness, Business, BusinessCreate, BusinessUpdate } from '../features/business';
 import BusinessFormModal from './BusinessFormModal';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
 
 const PAGE_SIZE = 10;
 
@@ -11,6 +12,7 @@ const BusinessList: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { businesses, loading, error } = useSelector((state: RootState) => state.business);
   const { user } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editMode, setEditMode] = useState(false);
@@ -122,6 +124,7 @@ const BusinessList: React.FC = () => {
             <th className="py-2 px-4 border-b">Registration #</th>
             <th className="py-2 px-4 border-b">Tax ID</th>
             <th className="py-2 px-4 border-b">Active</th>
+            <th className="py-2 px-4 border-b">Branches</th>
             {canEdit && <th className="py-2 px-4 border-b">Actions</th>}
           </tr>
         </thead>
@@ -133,10 +136,13 @@ const BusinessList: React.FC = () => {
               <td className="py-2 px-4 border-b">{b.registration_number}</td>
               <td className="py-2 px-4 border-b">{b.tax_id}</td>
               <td className="py-2 px-4 border-b">{b.is_active ? 'Yes' : 'No'}</td>
+              <td className="py-2 px-4 border-b">
+                <button className="text-green-600 hover:underline" onClick={() => navigate(`/branches/${b.id}`)}>Branches</button>
+              </td>
               {canEdit && (
                 <td className="py-2 px-4 border-b">
                   <button className="text-blue-600 hover:underline mr-2" onClick={() => handleEdit(b)}>Edit</button>
-                  <button className="text-red-600 hover:underline" onClick={() => handleDelete(b.id)}>Delete</button>
+                  <button className="text-red-600 hover:underline mr-2" onClick={() => handleDelete(b.id)}>Delete</button>
                 </td>
               )}
             </tr>

@@ -6,9 +6,11 @@ import { Branch } from '../features/branches/branchesAPI';
 // import { useSelector } from 'react-redux';
 // import { RootState } from '../app/store';
 
-const BranchesPage: React.FC = () => {
-  // Replace this with actual businessId from Redux or props
-  const businessId = 1;
+interface BranchesPageProps {
+  businessId: number;
+}
+
+const BranchesPage: React.FC<BranchesPageProps> = ({ businessId }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
 

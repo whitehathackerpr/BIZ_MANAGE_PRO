@@ -21,6 +21,7 @@ from .core.error_handlers import (
     BusinessException
 )
 from .db.base import Base
+from app.api.v1.endpoints import recommendations, analytics, session as session_endpoint, firebase, feedback
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -63,6 +64,11 @@ app.mount("/metrics", metrics_app)
 
 # Include API router
 app.include_router(api_v1_router, prefix=settings.API_V1_STR)
+app.include_router(recommendations.router, prefix="/api/v1/recommendations", tags=["recommendations"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
+app.include_router(session_endpoint.router, prefix="/api/v1/session", tags=["session"])
+app.include_router(firebase.router, prefix="/api/v1/firebase", tags=["firebase"])
+app.include_router(feedback.router, prefix="/api/v1/feedback", tags=["feedback"])
 
 @app.on_event("startup")
 async def startup_event():

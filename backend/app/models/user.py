@@ -93,6 +93,7 @@ class User(Base):
     
     # Relationships
     roles = relationship('Role', secondary=user_role, back_populates='users')
+    sessions = relationship('Session', back_populates='user')
     # managed_branch_id = Column(Integer, ForeignKey('branches.id'))
     
     # Supplier-specific relationships

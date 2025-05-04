@@ -120,8 +120,8 @@ class BranchFeedback(Base):
 class CustomerFeedback(Base):
     __tablename__ = 'customer_feedbacks'
     id = Column(Integer, primary_key=True)
-    customer_id = Column(Integer, ForeignKey('customer.id'), nullable=False)
-    product_id = Column(Integer, ForeignKey('product.id'), nullable=False)
+    customer_id = Column(Integer, ForeignKey('customers.id'), nullable=False)
+    product_id = Column(Integer, ForeignKey('products.id'), nullable=False)
     rating = Column(Integer, nullable=False)
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
